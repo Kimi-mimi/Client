@@ -84,7 +84,7 @@ int main(void) {
                 buffer[inputLength - 1] = '\0';
 
                 // Если юзер ввел 'q', то закрываем сокет и выходим из программы
-                if (strcmp(buffer, "q") == 0) {
+                if (strcmp(buffer, BREAK_WORD) == 0) {
                     closeProgram = 1;
                     break;
                 }
