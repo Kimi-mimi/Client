@@ -7,15 +7,15 @@
 #include <arpa/inet.h>
 
 
-int SERVER_PORT = 8282;             // Порт сервера
-char* SERVER_HOST = "127.0.0.1";    // Хост сервера
-int BUFFER_LEN = 1024;              // Размер буфера сообщений
-char* BREAK_WORD = "q";             // Строка, при вводе которой закрывать сокет
+#define SERVER_PORT     8282           // Порт сервера
+#define SERVER_HOST     "127.0.0.1"    // Хост сервера
+#define BUFFER_LEN      1024           // Размер буфера сообщений
+#define BREAK_WORD      "q"            // Строка, при вводе которой закрывать сокет
 
 
 void onError(const char* message) {
     printf("%s\n", message);
-    fprintf(stderr, "%s", message);
+    fprintf(stderr, "%s\n", message);
     exit(1);
 }
 
@@ -28,9 +28,8 @@ int main(void) {
 
     // Создаем сокет
     int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        onError("Can't open socket");
-    }
+    if (sock < 0)
+        onError("socket");
 
     // Заполняем fd_set'ы
     FD_SET(sock, &activeFdSet);
@@ -47,9 +46,9 @@ int main(void) {
     serverAddress.sin_port = htons(SERVER_PORT);
 
     // Соединяемся с сервером
-    if (connect(sock, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0) {
-        onError("Can't connect to server!");
-    }
+    if (connect(sock, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0)
+        onError("connect");
+
     printf("Connected to %s:%d\n", SERVER_HOST, SERVER_PORT);
 
     // Цикл отправки, пока не введется "q", или halt (что закроет сервер)
