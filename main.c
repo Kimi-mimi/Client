@@ -1,26 +1,36 @@
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <arpa/inet.h>
-
 
 #define SERVER_PORT     8282           // Порт сервера
 #define SERVER_HOST     "127.0.0.1"    // Хост сервера
 #define BUFFER_LEN      1024           // Размер буфера сообщений
 #define BREAK_WORD      "q"            // Строка, при вводе которой закрывать сокет
 
+static volatile int closeProgram = 0;  // Переменная-флаг для выхода из главного цикла (и программы в целом)
+
 
 void onError(const char* message) {
-    printf("%s\n", message);
     fprintf(stderr, "%s\n", message);
     exit(1);
 }
 
+void intHandler(int _) {
+    closeProgram = 1;
+}
+
 
 int main(void) {
+    // Добавляем обработчик SIGINT и SIGTERM
+    signal(SIGINT, intHandler);
+    signal(SIGTERM, intHandler);
+
     // Создаем множество дескрипторов для select
     fd_set activeFdSet, readFdSet;
     FD_ZERO(&activeFdSet);
@@ -53,7 +63,7 @@ int main(void) {
 
     // Цикл отправки, пока не введется "q", или halt (что закроет сервер)
     char buffer[BUFFER_LEN];
-    int messageLength, closeProgram = 0;
+    int messageLength = 0;
     size_t inputLength = 0;
     while(!closeProgram) {
         // Обновляем множество дескрипторов
@@ -61,7 +71,11 @@ int main(void) {
 
         // Вызов select
         if (select(maxDescr + 1, &readFdSet, NULL, NULL, NULL) < 0) {
-            onError("select");
+            // Если селект вернул -1, и errno установлена в EINTR, то пришел сигнал, то есть нужно выключить программу
+            if (errno == EINTR)
+                break;
+            else
+                onError("select");
         }
 
         for (int i = 0; i < FD_SETSIZE; i++) {
