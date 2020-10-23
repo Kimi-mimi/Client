@@ -78,7 +78,7 @@ int main(void) {
                 onError("select");
         }
 
-        for (int i = 0; i < FD_SETSIZE; i++) {
+        for (int i = 0; i < maxDescr + 1; i++) {
             // Если у дескриптора не изменились данные, игнорируем его
             if (!FD_ISSET(i, &readFdSet)) {
                 continue;
@@ -113,8 +113,11 @@ int main(void) {
                 // Обрабатываем ошибочную ситуацию, и ситуацию закрытия соединения сервером
                 if (messageLength < 0)
                     onError("recv");
-                else if (messageLength == 0)
-                    onError("Remote server has closed the connection");
+                else if (messageLength == 0) {
+                    closeProgram = 1;
+                    printf("Remote server has closed the connection\n");
+                    break;
+                }
 
                 // Печатаем сообщение
                 buffer[messageLength] = '\0';
