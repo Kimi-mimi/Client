@@ -125,6 +125,15 @@ size_t readFromFd(char **output, int fd) {
 }
 
 
+/**
+ * Отправка через send() до момента отправки всего сообщения
+ * Все параметры те же, что и для send()
+ * @param fd Десктриптор сокета
+ * @param message Сообщение для отправки
+ * @param len Длинна отправки
+ * @param flags Флаги send()
+ * @return Сколько отправилось (если < 0, то ошибка send)
+ */
 size_t iterSend(int fd, const char* message, size_t len, int flags) {
     size_t alreadySent = 0;         // Сколько уже отправилось байт
     size_t currentSent = 0;         // Сколько отправилось на данной итерации
