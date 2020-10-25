@@ -95,7 +95,7 @@ int main(void) {
                 stdinBuffer[inputLength] = 4;
 
                 // Отправляем сообщение на сервер
-                if (send(sock, stdinBuffer, inputLength+1, 0) < 0) {
+                if (iterSend(sock, stdinBuffer, inputLength+1, 0) < 0) {
                     free(stdinBuffer);
                     stdinBuffer = NULL;
                     onError("send");

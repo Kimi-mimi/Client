@@ -11,5 +11,6 @@ void onError(const char* message) __attribute__((noreturn));
 
 size_t readFromStdin(char **output);
 size_t readFromFd(char **output, int fd);
+size_t iterSend(int fd, const char* message, size_t len, int flags);
 
 #endif

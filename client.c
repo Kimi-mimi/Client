@@ -96,7 +96,7 @@ size_t readFromFd(char **output, int fd) {
         *output = NULL;
     }
 
-    while(!quit) {
+    while (!quit) {
         // Блокируемся на чтении из сокета
         recvLength = recv(fd, buf, READ_LENGTH, 0);
 
@@ -122,4 +122,23 @@ size_t readFromFd(char **output, int fd) {
     }
 
     return totalLength-1;
+}
+
+
+size_t iterSend(int fd, const char* message, size_t len, int flags) {
+    size_t alreadySent = 0;         // Сколько уже отправилось байт
+    size_t currentSent = 0;         // Сколько отправилось на данной итерации
+
+    while (alreadySent != len) {
+        // Отправляем сообщение
+        currentSent = send(fd, message + alreadySent, len - alreadySent, flags);
+
+        if (currentSent <= 0)
+            return currentSent;
+
+        // Увеличиваем количество уже отправленных байт
+        alreadySent += currentSent;
+    }
+
+    return alreadySent;
 }
