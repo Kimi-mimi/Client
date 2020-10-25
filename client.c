@@ -122,5 +122,4 @@ size_t readFromFd(char **output, int fd) {
     }
 
     return totalLength-1;
-
 }
