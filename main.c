@@ -92,10 +92,10 @@ int main(void) {
                 }
 
                 // Заменяем предпоследний символ строки на EOT (inputLength отстает от конца буфера на 2)
-                stdinBuffer[inputLength] = 4;
+                stdinBuffer[inputLength+1] = 4;
 
                 // Отправляем сообщение на сервер
-                if (iterSend(sock, stdinBuffer, inputLength+1, 0) < 0) {
+                if (iterSend(sock, stdinBuffer, inputLength+2, 0) < 0) {
                     free(stdinBuffer);
                     stdinBuffer = NULL;
                     onError("send");
