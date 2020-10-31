@@ -63,7 +63,7 @@ size_t readFromStdin(char** output) {
             // Заменяем \n на \0;
             buf[fgetsLength - 1] = '\0';
             // Инкрементируем длинну прочитанного для увеличения размера строки на один для хранения EOT и \0 в конце
-            fgetsLength++;
+//            fgetsLength++;
             // Устанавливаем флаг выхода
             quit = 1;
         }
@@ -76,7 +76,10 @@ size_t readFromStdin(char** output) {
     }
 
     // -1 из-за \n и еще один -1 из-за того, что мы на 1 байт выделили больше для EOT
-    return totalLength-2;
+//    return totalLength-2;
+
+    // -1 из-за \n
+    return totalLength - 1;
 }
 
 /**
@@ -109,8 +112,9 @@ size_t readFromFd(char **output, int fd) {
         }
 
         // Если последний прочитанный символ == 4 (EOT), то заменяем на \0 и устанавливаем флаг выхода
-        if (buf[recvLength - 1] == 4) {
-            buf[recvLength - 1] = '\0';
+//        if (buf[recvLength - 1] == 4){
+        if (buf[recvLength - 1] == '\0' && buf[recvLength - 2] == '4') {
+//            buf[recvLength - 1] = '\0';
             quit = 1;
         }
 
