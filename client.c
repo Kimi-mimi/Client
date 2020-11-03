@@ -74,7 +74,6 @@ size_t iterSend(int fd, const char* message, size_t len, int flags) {
             return currentSent;
         }
 
-        // Увеличиваем количество уже отправленных байт
         alreadySent += currentSent;
     }
 
