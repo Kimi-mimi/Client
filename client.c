@@ -113,7 +113,7 @@ size_t splitRecvBufferToOutput(char **output, char **recvBuffer, size_t *recvLen
         return -1;
     }
 
-    memcpy(output, *recvBuffer, outputLength * sizeof(char));
+    memcpy(*output, *recvBuffer, outputLength * sizeof(char));
     memcpy(newRecvBuffer, *recvBuffer + outputLength, newRecvLength * sizeof(char));
 
     *recvLength = newRecvLength;
