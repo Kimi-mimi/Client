@@ -1,52 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/socket.h>
 #include "client.h"
+#include "client_errors.h"
+#include "bytes.h"
 
-inline void onError(const char* message) {
-    fprintf(stderr, "%s\n", message);
-    exit(1);
-}
-
-/**
- * Конкатенация 2 строк с выделением памяти под это и передачей длинн строк
- * Все конкатенируется в первую строку
- * @param str1 Первая строка, аккумулятор
- * @param str2 Вторая строка
- * @param str1Length Длинна первой строки
- * @param str2Length Длинна второй строки
- */
-void concatStringsWithAllocAndLengths(char** str1, const char* str2, size_t str1Length, size_t str2Length) {
-    // Выделяем память под текущее сообщение + прочитнанное, и обрабатываем ошибку выделения
-    char *newMem = calloc(str1Length + str2Length, sizeof(char));
-    if (!newMem) {
-        if (*str1)
-            free(*str1);
-        onError("calloc");
-    }
-
-    // Копируем текущее сообщение и буфер в новую память
-    memcpy(newMem, *str1, sizeof(char) * str1Length);
-    memcpy(newMem + str1Length, str2, sizeof(char) * str2Length);
-
-    // Чистим старую память и переустанавливаем указатель сообщения на новый
-    if (*str1)
-        free(*str1);
-    *str1 = newMem;
-}
-
-/**
- * Чтение с помощью fgets сообщения из stdin
- * Выделит на 1 байт больше, чем длинна сообщения + байт на \0 для вставки EOT в конце
- * @param output Адрес строки для записи сообщения, при ошибке всегда вернется NULL
- * @return Длинна прочитанного сообщения (без учета \0 в конце)
- */
 size_t readFromStdin(char** output) {
-    char buf[READ_LENGTH];              // Буфер чтения
-    int quit = 0;                       // Флаг выхода из цикла чтения
-    size_t fgetsLength = 0;             // Количество прочитанных символов с помощью fgets
-    unsigned long totalLength = 0;      // Сколько уже прочитано
+    char buf[READ_LENGTH];
+    int quit = 0;
+    size_t fgetsLength = 0;
+    size_t concatLength = 0;
+    unsigned long totalLength = 0;
 
     if (*output) {
         free(*output);
@@ -54,104 +20,106 @@ size_t readFromStdin(char** output) {
     }
 
     while (!quit) {
-        // Читаем часть входногой строки в буфер, вычисляя при этом длинну прочитанного
         fgets(buf, READ_LENGTH, stdin);
         fgetsLength = strlen(buf);
 
-        // Если прочитали \n, то устанавливаем флаг конца цикла
-        if (buf[fgetsLength - 1] == '\n') {
-            // Заменяем \n на \0;
-            buf[fgetsLength - 1] = '\0';
-            // Инкрементируем длинну прочитанного для увеличения размера строки на один для хранения EOT и \0 в конце
-//            fgetsLength++;
-            // Устанавливаем флаг выхода
+        if (buf[fgetsLength - 1] == '\n')
             quit = 1;
+
+        concatLength = concatBytesWithAllocAndLengths(output, buf, totalLength, fgetsLength, 0);
+        if (concatLength < 0) {
+            errPrint();
+            return concatLength;
         }
 
-        // Конкатенируем текущую строку и буфер
-        concatStringsWithAllocAndLengths(output, buf, totalLength, fgetsLength);
-
-        // Изменяем длинну сообщения
         totalLength += fgetsLength;
     }
 
-    // -1 из-за \n и еще один -1 из-за того, что мы на 1 байт выделили больше для EOT
-//    return totalLength-2;
-
-    // -1 из-за \n
-    return totalLength - 1;
+    return totalLength;
 }
 
-/**
- * Чтение с помощью блокирующего recv сообщения из сокета
- * @param output Адрес строки для записи сообщения, при ошибке всегда вернется NULL
- * @param fd Дескриптор сокета
- * @return Длинна прочитанного сообщения (без учета \0 в конце)
- */
-size_t readFromFd(char **output, int fd) {
-    char buf[READ_LENGTH];              // Буфер чтения
-    int quit = 0;                       // Флаг выхода из цикла чтения
-    size_t recvLength = 0;              // Количество прочитанных символов с помощью fgets
-    unsigned long totalLength = 0;      // Сколько уже прочитано
+size_t readFromFd(char **output, size_t currentLength, int fd) {
+    char buf[READ_LENGTH];
+    size_t recvLength = 0;
+    size_t concatLength = 0;
 
-    if (*output) {
-        free(*output);
-        *output = NULL;
+    recvLength = recv(fd, buf, READ_LENGTH, 0);
+
+    if (recvLength <= 0) {
+        errPrint();
+        errno = CERR_RECV;
+        return recvLength;
     }
 
-    while (!quit) {
-        // Блокируемся на чтении из сокета
-        recvLength = recv(fd, buf, READ_LENGTH, 0);
-
-        if (recvLength <= 0) {
-            if (*output) {
-                free(*output);
-                *output = NULL;
-            }
-            return recvLength;
-        }
-
-        // Если последний прочитанный символ == 4 (EOT), то заменяем на \0 и устанавливаем флаг выхода
-//        if (buf[recvLength - 1] == 4){
-        if (buf[recvLength - 1] == '\0' && buf[recvLength - 2] == '4') {
-//            buf[recvLength - 1] = '\0';
-            quit = 1;
-        }
-
-        // Конкатенируем текущую строку и буфер
-        concatStringsWithAllocAndLengths(output, buf, totalLength, recvLength);
-
-        // Изменяем длинну сообщения
-        totalLength += recvLength;
+    concatLength = concatBytesWithAllocAndLengths(output, buf, currentLength, recvLength, 0);
+    if (concatLength < 0) {
+        errPrint();
+        return concatLength;
     }
 
-    return totalLength-1;
+    return concatLength;
 }
 
-
-/**
- * Отправка через send() до момента отправки всего сообщения
- * Все параметры те же, что и для send()
- * @param fd Десктриптор сокета
- * @param message Сообщение для отправки
- * @param len Длинна отправки
- * @param flags Флаги send()
- * @return Сколько отправилось (если < 0, то ошибка send)
- */
 size_t iterSend(int fd, const char* message, size_t len, int flags) {
-    size_t alreadySent = 0;         // Сколько уже отправилось байт
-    size_t currentSent = 0;         // Сколько отправилось на данной итерации
+    size_t alreadySent = 0;
+    size_t currentSent = 0;
 
     while (alreadySent != len) {
         // Отправляем сообщение
         currentSent = send(fd, message + alreadySent, len - alreadySent, flags);
 
-        if (currentSent < 0)
+        if (currentSent < 0) {
+            errPrint();
+            errno = CERR_SEND;
             return currentSent;
+        }
 
         // Увеличиваем количество уже отправленных байт
         alreadySent += currentSent;
     }
 
     return alreadySent;
+}
+
+size_t splitRecvBufferToOutput(char **output, char **recvBuffer, size_t *recvLength) {
+    int outputOffset;
+    size_t outputLength;
+    size_t newRecvLength;
+    char *newRecvBuffer = NULL;
+
+    if (!*recvBuffer) {
+        return 0;
+    }
+
+    outputOffset = hasSubBuffer(*recvBuffer, *recvLength, EOT, EOT_LENGTH);
+    if (outputOffset < 0)
+        return 0;
+
+    if (*output)
+        free(*output);
+    outputLength = outputOffset + EOT_LENGTH + 1;   // +1 для \0
+    *output = calloc(outputLength, sizeof(char));
+    if (!*output) {
+        errPrint();
+        errno = CERR_MEM_ALLOC;
+        return -1;
+    }
+
+    newRecvLength = *recvLength - outputLength;
+    newRecvBuffer = calloc(newRecvLength, sizeof(char));
+    if (!newRecvBuffer) {
+        freeAndNull(*output);
+        errPrint();
+        errno = CERR_MEM_ALLOC;
+        return -1;
+    }
+
+    memcpy(output, *recvBuffer, outputLength * sizeof(char));
+    memcpy(newRecvBuffer, *recvBuffer + outputLength, newRecvLength * sizeof(char));
+
+    *recvLength = newRecvLength;
+    free(*recvBuffer);
+    *recvBuffer = newRecvBuffer;
+
+    return outputLength;
 }
