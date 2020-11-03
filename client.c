@@ -87,9 +87,8 @@ size_t splitRecvBufferToOutput(char **output, char **recvBuffer, size_t *recvLen
     size_t newRecvLength;
     char *newRecvBuffer = NULL;
 
-    if (!*recvBuffer) {
+    if (!*recvBuffer)
         return 0;
-    }
 
     outputOffset = hasSubBuffer(*recvBuffer, *recvLength, EOT, EOT_LENGTH);
     if (outputOffset < 0)
