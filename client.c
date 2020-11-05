@@ -94,7 +94,7 @@ size_t splitRecvBufferToOutput(char **output, char **recvBuffer, size_t *recvLen
         return 0;
 
     if (*output)
-        free(*output);
+        freeAndNull(*output);
     outputLength = outputOffset + EOT_LENGTH + 1;   // +1 для \0
     *output = calloc(outputLength, sizeof(char));
     if (!*output) {
@@ -103,7 +103,7 @@ size_t splitRecvBufferToOutput(char **output, char **recvBuffer, size_t *recvLen
         return -1;
     }
 
-    newRecvLength = *recvLength - outputLength;
+    newRecvLength = *recvLength - (outputLength - 1);
     newRecvBuffer = calloc(newRecvLength, sizeof(char));
     if (!newRecvBuffer) {
         freeAndNull(*output);
@@ -112,8 +112,8 @@ size_t splitRecvBufferToOutput(char **output, char **recvBuffer, size_t *recvLen
         return -1;
     }
 
-    memcpy(*output, *recvBuffer, outputLength * sizeof(char));
-    memcpy(newRecvBuffer, *recvBuffer + outputLength, newRecvLength * sizeof(char));
+    memcpy(*output, *recvBuffer, (outputLength - 1) * sizeof(char));
+    memcpy(newRecvBuffer, *recvBuffer + (outputLength - 1), newRecvLength * sizeof(char));
 
     *recvLength = newRecvLength;
     free(*recvBuffer);

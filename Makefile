@@ -1,13 +1,19 @@
 C_VER := -std=c99
 FLAGS := -Wall -Werror -pedantic -g3 -gdwarf-2 -DDEBUG -g
 
-all: main
+all: main test
 
 main: main.o client.o client_errors.o bytes.o
 	gcc $(C_VER) $(FLAGS) -o main main.o client.o client_errors.o bytes.o
 
+test: test.o bytes.o client.o client_errors.o
+	gcc $(C_VER) $(FLAGS) -o test test.o client.o bytes.o client_errors.o
+
 main.o: main.c client.h client_errors.h bytes.h
 	gcc $(C_VER) $(FLAGS) -c main.c -o main.o
+
+test.o: test.c bytes.h client.h client_errors.h
+	gcc $(C_VER) $(FLAGS) -c test.c -o test.o
 
 client.o: client.h client.c client_errors.h bytes.h
 	gcc $(C_VER) $(FLAGS) -c client.c -o client.o

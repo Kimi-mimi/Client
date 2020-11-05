@@ -46,7 +46,7 @@ int hasSuffix(const char *bytes, size_t bytesLength, const char *suffix, size_t 
 
 int hasSubBuffer(const char *bytes, size_t bytesLength, const char* subBytes, size_t subBytesLength) {
     if (bytesLength == 0 || subBytesLength == 0 || bytesLength < subBytesLength)
-        return 0;
+        return -1;
 
     for (int i = 0; i + subBytesLength <= bytesLength; i++)
         if (isBuffersEqual(bytes + i, subBytes, subBytesLength, subBytesLength))
