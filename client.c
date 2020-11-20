@@ -2,10 +2,37 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include "client.h"
 #include "client_errors.h"
 #include "bytes.h"
+
+int initAndConnectSocket(const char* serverHost, int serverPort) {
+    int sock;                               // Дескриптор сокета
+    struct sockaddr_in serverAddress;       // Адрес сокета
+
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        errPrint();
+        errno = CERR_SOCKET;
+        return -1;
+    }
+
+    serverAddress.sin_family = AF_INET;
+    inet_pton(AF_INET, SERVER_HOST, &serverAddress.sin_addr);
+    serverAddress.sin_port = htons(SERVER_PORT);
+
+    if (connect(sock, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0) {
+        close(sock);
+        errPrint();
+        errno = CERR_CONNECT;
+        return -1;
+    }
+
+    return sock;
+}
 
 size_t readFromStdin(char** output) {
     char buf[READ_LENGTH];

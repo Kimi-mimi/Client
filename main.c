@@ -4,15 +4,15 @@
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
-#include <sys/socket.h>
 #include <sys/select.h>
-#include <arpa/inet.h>
+#include <sys/ipc.h>
 #include "client.h"
 #include "bytes.h"
+#include "logger.h"
 #include "client_errors.h"
 
 #define freeAllBuffers() freeAndNull(stdinBuffer); freeAndNull(recvBuffer); freeAndNull(outputBuffer)
-#define cleanAndErrPrint() freeAllBuffers(); errPrint()
+#define cleanAndErrPrint(loggerPid) freeAllBuffers(); kill(loggerPid, SIGINT); errPrint()
 
 static volatile int closeProgram = 0;       // Флаг мягкого закрытия программы
 
@@ -23,7 +23,8 @@ void intHandler(int _) {
 int main(void) {
     int sock;                               // Дескриптор сокета
     int maxDescr;                           // Максимальный номер дескриптора (для итерации после select)
-    struct sockaddr_in serverAddress;       // Адрес сокета
+    int pipeFd[2];                          // Дескриптор пайпов [0] -- read, [1] -- write
+    int loggerPid;                          // PID логгера
     fd_set activeFdSet, readFdSet;          // Множеста дескрипторов для select
     size_t inputLength = 0;                 // Длинна введенного сообщения из stdin
     size_t recvLength = 0;                  // Длинна сообщения, которое пришло по сокету
@@ -32,30 +33,32 @@ int main(void) {
     char *recvBuffer = NULL;                // Буфер для сообщения из сокета
     char *outputBuffer = NULL;              // Буфер для вывода сообщения, полученного по сокету
 
+    if (pipe(pipeFd) < 0) {
+        errno = CERR_PIPE;
+        errPrint();
+        onError();
+    }
+
+    loggerPid = loggerMain(pipeFd[0], pipeFd[1]);
+    if (loggerPid < 0) {
+        errPrint();
+        onError();
+    }
+    printf("Logger pid: %d\n", loggerPid);
+
     signal(SIGINT, intHandler);
     signal(SIGTERM, intHandler);
 
-    sock = socket(AF_INET, SOCK_STREAM, 0);
+    sock = initAndConnectSocket(SERVER_HOST, SERVER_PORT);
     if (sock < 0) {
         errPrint();
-        errno = CERR_SOCKET;
+        kill(loggerPid, SIGINT);
         onError();
     }
-
     maxDescr = STDIN_FILENO < sock ? sock : STDIN_FILENO;
 
-    serverAddress.sin_family = AF_INET;
-    inet_pton(AF_INET, SERVER_HOST, &serverAddress.sin_addr);
-    serverAddress.sin_port = htons(SERVER_PORT);
-
-    if (connect(sock, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0) {
-        close(sock);
-        errPrint();
-        errno = CERR_CONNECT;
-        onError();
-    }
-
     printf("Connected to %s:%d\n", SERVER_HOST, SERVER_PORT);
+    logMessage("Client is connected", info);
 
     FD_ZERO(&activeFdSet);
     FD_ZERO(&readFdSet);
@@ -71,7 +74,7 @@ int main(void) {
                 break;
             else {
                 close(sock);
-                cleanAndErrPrint();
+                cleanAndErrPrint(loggerPid);
                 errno = CERR_SELECT;
                 onError();
             }
@@ -90,7 +93,7 @@ int main(void) {
                 }
 
                 if (iterSend(sock, stdinBuffer, inputLength, 0) < 0) {
-                    cleanAndErrPrint();
+                    cleanAndErrPrint(loggerPid);
                     onError();
                 }
 
@@ -100,8 +103,7 @@ int main(void) {
                 recvLength = readFromFd(&recvBuffer, recvLength, sock);
 
                 if (recvLength < 0) {
-                    cleanAndErrPrint();
-                    errno = CERR_RECV;
+                    cleanAndErrPrint(loggerPid);
                     onError();
                 } else if (recvLength == 0) {
                     closeProgram = 1;
@@ -111,7 +113,7 @@ int main(void) {
 
                 outputLength = splitRecvBufferToOutput(&outputBuffer, &recvBuffer, &recvLength);
                 if (outputLength < 0) {
-                    cleanAndErrPrint();
+                    cleanAndErrPrint(loggerPid);
                     onError();
                 } else if (outputLength > 0) {
                     printf("<< \"%s\"\n^ %zu bytes above\n", outputBuffer, outputLength);
@@ -125,6 +127,7 @@ int main(void) {
 
     freeAllBuffers();
     close(sock);
+    kill(loggerPid, SIGINT);
     printf("Bye-bye!\n");
     return 0;
 }

@@ -5,26 +5,52 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "client_errors.h"
+#include "logger.h"
+
+void printError(const char *message) {
+    fprintf(stderr, "%s\n", message);
+    if (logMessage(message, error) < 0) {
+        fprintf(stderr, "logger\n");
+    }
+}
 
 void onError() {
     switch (errno) {
         case CERR_SOCKET:
-            fprintf(stderr, "socket\n");
+            printError("socket");
             break;
         case CERR_CONNECT:
-            fprintf(stderr, "connect\n");
+            printError("connect");
             break;
         case CERR_RECV:
-            fprintf(stderr, "recv\n");
+            printError("recv");
             break;
         case CERR_SEND:
-            fprintf(stderr, "send\n");
+            printError("send");
             break;
         case CERR_SELECT:
-            fprintf(stderr, "select\n");
+            printError("select");
             break;
         case CERR_MEM_ALLOC:
-            fprintf(stderr, "mem alloc\n");
+            printError("mem alloc");
+            break;
+        case CERR_FTOK:
+            printError("ftok");
+            break;
+        case CERR_FORK:
+            printError("fork");
+            break;
+        case CERR_FOPEN:
+            printError("fopen");
+            break;
+        case CERR_READ:
+            printError("read");
+            break;
+        case CERR_WRITE:
+            printError("write");
+            break;
+        default:
+            printError("Unknown");
             break;
     }
     exit(errno);
