@@ -128,6 +128,8 @@ int main(void) {
     freeAllBuffers();
     close(sock);
     kill(loggerPid, SIGINT);
+    close(pipeFd[0]);
+    close(pipeFd[1]);
     printf("Bye-bye!\n");
     return 0;
 }
