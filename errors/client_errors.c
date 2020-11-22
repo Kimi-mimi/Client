@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "client_errors.h"
-#include "logger.h"
+#include "../logger/logger.h"
 
 void printError(const char *message) {
     fprintf(stderr, "%s\n", message);
@@ -37,6 +37,9 @@ void onError() {
         case CERR_FTOK:
             printError("ftok");
             break;
+        case CERR_PIPE:
+            printError("pipe");
+            break;
         case CERR_FORK:
             printError("fork");
             break;
@@ -48,6 +51,15 @@ void onError() {
             break;
         case CERR_WRITE:
             printError("write");
+            break;
+        case CERR_SELF_UNINITIALIZED:
+            printError("self is uninitialized");
+            break;
+        case CERR_INVALID_ARG:
+            printError("invalid argument");
+            break;
+        case CERR_DIR_NOT_FOUND:
+            printError("directory not found");
             break;
         default:
             printError("Unknown");

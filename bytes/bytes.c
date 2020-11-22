@@ -5,7 +5,7 @@
 #include <string.h>
 #include <errno.h>
 #include "bytes.h"
-#include "client_errors.h"
+#include "../errors/client_errors.h"
 
 size_t concatBytesWithAllocAndLengths(char** bytes1, const char* bytes2, size_t bytes1Size, size_t bytes2Size,
                                       size_t extraBytesLength) {

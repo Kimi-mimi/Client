@@ -19,6 +19,9 @@
 #define CERR_FOPEN                  10
 #define CERR_READ                   11
 #define CERR_WRITE                  12
+#define CERR_SELF_UNINITIALIZED     13
+#define CERR_INVALID_ARG            14
+#define CERR_DIR_NOT_FOUND          15
 
 #define errPrint() fprintf(stderr, "File \"%s\" -> %s(), line %d\n", __FILE__, __FUNCTION__, __LINE__)
 

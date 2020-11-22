@@ -6,9 +6,9 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
-#include "bytes.h"
-#include "client.h"
-#include "client_errors.h"
+#include "bytes/bytes.h"
+#include "client/client.h"
+#include "errors/client_errors.h"
 
 // region Bytes
 void testFreeAndNull() {

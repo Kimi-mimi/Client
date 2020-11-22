@@ -10,13 +10,47 @@
 #include <errno.h>
 #include <sys/ipc.h>
 #include "logger.h"
-#include "client_errors.h"
+#include "../errors/client_errors.h"
 
+static int pipeFdRead, pipeFdWrite;     // Дескрипторы пайпов
+
+int logMessage(const char* message, LogMessageType messageType) {
+    int ret;                                        // Возвращаемое значение
+    const char *messagePrefix;                      // Префикс сообщения
+    char resultingMessage[LOG_MESSAGE_SIZE] = {0};  // Полный текст сообщения
+
+    switch (messageType) {
+        case warning:
+            messagePrefix = "[WARNING] ";
+            break;
+        case error:
+            messagePrefix = "[ERROR] ";
+            break;
+        case info:
+            messagePrefix = "[INFO] ";
+            break;
+        default:
+            messagePrefix = "[NONE] ";
+            break;
+    }
+
+    memcpy(resultingMessage, messagePrefix, strlen(messagePrefix));
+    strcat(resultingMessage, message);
+
+    ret = write(pipeFdWrite, resultingMessage, strlen(resultingMessage));
+    if (ret < -1) {
+        errno = CERR_WRITE;
+        errPrint();
+    }
+
+    return ret;
+}
+
+// ****************************************************************************************************************** //
 
 #define cleanup() fclose(logFile); logFile = NULL
 
 static volatile int quit = 0;           // Флаг завершения процесса-логгера
-static int pipeFdRead, pipeFdWrite;     // Дескрипторы пайпов
 
 static void intHandler(int _) {
     quit = 1;
@@ -95,38 +129,4 @@ int loggerMain(int fdRead, int fdWrite) {
     fprintf(logFile, "[INFO] Shutting down, bye-bye\n");
     cleanup();
     exit(0);
-}
-
-// ************************************************************************************************** //
-
-int logMessage(const char* message, LogMessageType messageType) {
-    int ret;                                        // Возвращаемое значение
-    const char *messagePrefix;                      // Префикс сообщения
-    char resultingMessage[LOG_MESSAGE_SIZE] = {0};  // Полный текст сообщения
-
-    switch (messageType) {
-        case warning:
-            messagePrefix = "[WARNING] ";
-            break;
-        case error:
-            messagePrefix = "[ERROR] ";
-            break;
-        case info:
-            messagePrefix = "[INFO] ";
-            break;
-        default:
-            messagePrefix = "[NONE] ";
-            break;
-    }
-
-    memcpy(resultingMessage, messagePrefix, strlen(messagePrefix));
-    strcat(resultingMessage, message);
-
-    ret = write(pipeFdWrite, resultingMessage, strlen(resultingMessage));
-    if (ret < -1) {
-        errno = CERR_WRITE;
-        errPrint();
-    }
-
-    return ret;
 }
