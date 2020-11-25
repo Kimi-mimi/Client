@@ -1,0 +1,173 @@
+//
+// Created by Dmitry Gorin on 25.11.2020.
+//
+
+#include <CUnit/Basic.h>
+#include <string.h>
+#include "../string.h"
+#include "string_test.h"
+
+
+int initSuiteString(void) {
+    return 0;
+}
+
+int cleanupSuiteString(void) {
+    return 0;
+}
+
+int fillSuiteWithTestsString(CU_pSuite suite) {
+    if (!CU_add_test(suite, "Test init with string literal", testStringCreateFromLiteral) ||
+            !CU_add_test(suite, "Test copy string", testStringInitCopy) ||
+            !CU_add_test(suite, "Test string equals to", testStringEqualsTo) ||
+            !CU_add_test(suite, "Test string concat", testStringConcat) ||
+            !CU_add_test(suite, "Test string has prefix", testStringHasPrefix) ||
+            !CU_add_test(suite, "Test string has suffix", testStringHasSuffix) ||
+            !CU_add_test(suite, "Test string has substring", testStringHasSubstring) ||
+            !CU_add_test(suite, "Test string strip trailing symbols", testStringStripTrailingSymbols) ||
+            !CU_add_test(suite, "Test string replace chars from idx with len", testStringReplaceCharactersFromIdxWithLen) ||
+            !CU_add_test(suite, "Test string slice", testStringSlice)) {
+        return CU_get_error();
+    }
+    return CUE_SUCCESS;
+}
+
+void testStringCreateFromLiteral(void) {
+    const char *literal = "12345";
+    const int literalLen = strlen(literal);
+    String *testingString = NULL;
+
+    testingString = stringInitFromStringBuf(literal);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(testingString)
+    CU_ASSERT_EQUAL(testingString->count, literalLen)
+    CU_ASSERT_TRUE_FATAL(testingString->capacity > testingString->count)
+    for (int i = 0; i <= literalLen; i++)
+        CU_ASSERT_EQUAL(testingString->buf[i], literal[i])
+
+    stringDeinit(testingString);
+}
+
+void testStringInitCopy(void) {
+    String *firstString = stringInitFromStringBuf("12345");
+    String *testingString = NULL;
+
+    CU_ASSERT_PTR_NOT_NULL_FATAL(firstString)
+    testingString = stringInitCopy(firstString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(testingString)
+
+    CU_ASSERT_EQUAL(testingString->count, firstString->count)
+    CU_ASSERT_TRUE_FATAL(testingString->capacity > testingString->count)
+    for (int i = 0; i <= firstString->count; i++)
+        CU_ASSERT_EQUAL(testingString->buf[i], firstString->buf[i])
+
+    stringDeinit(testingString);
+    stringDeinit(firstString);
+}
+
+void testStringEqualsTo(void) {
+    String *baseString = stringInitFromStringBuf("12345");
+    String *equalString = stringInitFromStringBuf("12345");
+    String *notEqualString = stringInitFromStringBuf("54321");
+    String *notEqualStringWrongSize = stringInitFromStringBuf("123456");
+
+    CU_ASSERT_PTR_NOT_NULL_FATAL(baseString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(equalString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(notEqualString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(notEqualStringWrongSize)
+
+    CU_ASSERT_TRUE(stringEqualsTo(baseString, equalString))
+    CU_ASSERT_FALSE(stringEqualsTo(baseString, notEqualString))
+    CU_ASSERT_FALSE(stringEqualsTo(baseString, notEqualStringWrongSize))
+
+    stringDeinit(notEqualStringWrongSize);
+    stringDeinit(notEqualString);
+    stringDeinit(equalString);
+    stringDeinit(baseString);
+}
+
+#define STRING_TEST_CONCAT_FIRST_LITERAL "12345"
+#define STRING_TEST_CONCAT_SECOND_LITERAL "qwerty"
+#define STRING_TEST_CONCAT_EMPTY_LITERAL ""
+void testStringConcat(void) {
+    String *firstString = stringInitFromStringBuf(STRING_TEST_CONCAT_FIRST_LITERAL);
+    String *secondString = stringInitFromStringBuf(STRING_TEST_CONCAT_SECOND_LITERAL);
+    String *emptyString = stringInitFromStringBuf(STRING_TEST_CONCAT_EMPTY_LITERAL);
+    String *firstAndSecondString = stringInitFromStringBuf(
+            STRING_TEST_CONCAT_FIRST_LITERAL STRING_TEST_CONCAT_SECOND_LITERAL);
+    String *testString = NULL;
+
+    CU_ASSERT_PTR_NOT_NULL_FATAL(firstString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(secondString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(emptyString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(firstAndSecondString);
+
+    testString = stringInitCopy(firstString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(testString);
+    stringConcat(testString, secondString);
+    CU_ASSERT_TRUE(stringEqualsTo(testString, firstAndSecondString));
+    stringDeinit(testString);
+    testString = NULL;
+
+    testString = stringInitCopy(firstString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(testString);
+    stringConcat(testString, emptyString);
+    CU_ASSERT_TRUE(stringEqualsTo(testString, firstString));
+    stringDeinit(testString);
+    testString = NULL;
+
+    testString = stringInitCopy(emptyString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(testString);
+    stringConcat(testString, secondString);
+    CU_ASSERT_TRUE(stringEqualsTo(testString, secondString));
+    stringDeinit(testString);
+    testString = NULL;
+
+    stringDeinit(firstAndSecondString);
+    stringDeinit(emptyString);
+    stringDeinit(secondString);
+    stringDeinit(firstString);
+}
+
+void testStringHasPrefix(void) {
+
+}
+
+void testStringHasSuffix(void) {
+
+}
+
+void testStringHasSubstring(void) {
+
+}
+
+void testStringStripTrailingSymbols(void) {
+
+}
+
+void testStringReplaceCharactersFromIdxWithLen(void) {
+
+}
+
+void testStringSlice(void) {
+    String *baseString = stringInitFromStringBuf("12345");
+    String *baseStringFirstToThirdIdx = stringInitFromStringBuf("23");
+    String *sliced = NULL;
+
+    CU_ASSERT_PTR_NOT_NULL_FATAL(baseString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(baseStringFirstToThirdIdx)
+
+    sliced = stringSlice(baseString, 0, baseString->count);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(sliced)
+    CU_ASSERT_TRUE(stringEqualsTo(sliced, baseString))
+    stringDeinit(sliced);
+    sliced = NULL;
+
+    sliced = stringSlice(baseString, 1, 3);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(sliced)
+    CU_ASSERT_TRUE(stringEqualsTo(baseStringFirstToThirdIdx, sliced))
+    stringDeinit(sliced);
+    sliced = NULL;
+
+    stringDeinit(baseStringFirstToThirdIdx);
+    stringDeinit(baseString);
+}

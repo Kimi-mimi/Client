@@ -5,11 +5,14 @@
 #ifndef CLIENT_SMPT_CONNECTION_H
 #define CLIENT_SMPT_CONNECTION_H
 
+#include "smtp_message.h"
+
 #define SMTPCONN_CAN_READ   0001
 #define SMTPCONN_CAN_WRITE  0002
 
 typedef struct {
     int socket;                             // Дескриптор сокета
+    SMTPMessage *message;                   // Письмо, которое нужно отправить
     char *readBuffer;                       // Буфер того, что пришло на сокет
     char *writeBuffer;                      // Буфер того, что отправить на сокет
     unsigned short readWriteCapability;     // Можно ли читать/писать в подключение

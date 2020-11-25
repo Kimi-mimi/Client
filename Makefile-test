@@ -1,0 +1,26 @@
+C_VER := -std=c99
+FLAGS := -Wall -Werror -pedantic
+CUNIT := -lcunit
+BUILD_ROOT_DIR := build
+BUILD_DIR := $(BUILD_ROOT_DIR)/test
+
+all: create_build_dir test
+
+create_build_dir:
+	mkdir -p $(BUILD_DIR)
+
+test: test.o string_test.o
+	gcc $(C_VER) $(FLAGS) $(CUNIT) -o $(BUILD_DIR)/test \
+$(BUILD_DIR)/test.o \
+$(BUILD_DIR)/string_test.o \
+$(BUILD_ROOT_DIR)/string.o \
+$(BUILD_ROOT_DIR)/bytes.o
+
+test.o: test.c bytes/test/string_test.h
+	gcc $(C_VER) $(FLAGS) -c test.c -o $(BUILD_DIR)/test.o
+
+string_test.o: bytes/test/string_test.c bytes/test/string_test.h bytes/string.h
+	gcc $(C_VER) $(FLAGS) -c bytes/test/string_test.c -o $(BUILD_DIR)/string_test.o
+
+clean:
+	rm -rf $(BUILD_DIR)
