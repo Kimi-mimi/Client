@@ -5,6 +5,8 @@
 #ifndef CLIENT_STRING_TEST_H
 #define CLIENT_STRING_TEST_H
 
+#include <CUnit/Basic.h>
+
 int initSuiteString(void);
 int cleanupSuiteString(void);
 int fillSuiteWithTestsString(CU_pSuite suite);
@@ -18,7 +20,7 @@ void testStringConcat(void);
 
 void testStringHasPrefix(void);
 void testStringHasSuffix(void);
-void testStringHasSubstring(void);
+void testStringContains(void);
 
 void testStringStripTrailingSymbols(void);
 void testStringReplaceCharactersFromIdxWithLen(void);

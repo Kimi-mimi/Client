@@ -23,7 +23,7 @@ int fillSuiteWithTestsString(CU_pSuite suite) {
             !CU_add_test(suite, "Test string concat", testStringConcat) ||
             !CU_add_test(suite, "Test string has prefix", testStringHasPrefix) ||
             !CU_add_test(suite, "Test string has suffix", testStringHasSuffix) ||
-            !CU_add_test(suite, "Test string has substring", testStringHasSubstring) ||
+            !CU_add_test(suite, "Test string has substring", testStringContains) ||
             !CU_add_test(suite, "Test string strip trailing symbols", testStringStripTrailingSymbols) ||
             !CU_add_test(suite, "Test string replace chars from idx with len", testStringReplaceCharactersFromIdxWithLen) ||
             !CU_add_test(suite, "Test string slice", testStringSlice)) {
@@ -129,23 +129,106 @@ void testStringConcat(void) {
 }
 
 void testStringHasPrefix(void) {
+    String *baseString = stringInitFromStringBuf("12345");
+    String *substringTrue = stringInitFromStringBuf("12");
+    String *substringFalse = stringInitFromStringBuf("qw");
 
+    CU_ASSERT_PTR_NOT_NULL_FATAL(baseString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(substringTrue)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(substringFalse)
+
+    CU_ASSERT_TRUE(stringHasPrefix(baseString, substringTrue))
+    CU_ASSERT_FALSE(stringHasPrefix(baseString, substringFalse))
+
+    stringDeinit(substringFalse);
+    stringDeinit(substringTrue);
+    stringDeinit(baseString);
 }
 
 void testStringHasSuffix(void) {
+    String *baseString = stringInitFromStringBuf("12345");
+    String *substringTrue = stringInitFromStringBuf("45");
+    String *substringFalse = stringInitFromStringBuf("qw");
 
+    CU_ASSERT_PTR_NOT_NULL_FATAL(baseString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(substringTrue)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(substringFalse)
+
+    CU_ASSERT_TRUE(stringHasSuffix(baseString, substringTrue))
+    CU_ASSERT_EQUAL(stringHasSuffix(baseString, substringFalse), STRING_CHAR_NOT_FOUND)
+
+    stringDeinit(substringFalse);
+    stringDeinit(substringTrue);
+    stringDeinit(baseString);
 }
 
-void testStringHasSubstring(void) {
+void testStringContains(void) {
+    String *baseString = stringInitFromStringBuf("12345");
+    String *substringTrue = stringInitFromStringBuf("23");
+    String *substringFalse = stringInitFromStringBuf("qw");
 
+    CU_ASSERT_PTR_NOT_NULL_FATAL(baseString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(substringTrue)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(substringFalse)
+
+    CU_ASSERT_EQUAL(stringContains(baseString, substringTrue), 1)
+    CU_ASSERT_EQUAL(stringContains(baseString, baseString), 0)
+    CU_ASSERT_EQUAL(stringContains(baseString, substringFalse), -1)
+
+    stringDeinit(substringFalse);
+    stringDeinit(substringTrue);
+    stringDeinit(baseString);
 }
 
 void testStringStripTrailingSymbols(void) {
+    String *baseString = stringInitFromStringBuf("12345");
+    String *baseStringAfterStrip5And4 = stringInitFromStringBuf("123");
+    String *testingString = NULL;
 
+    CU_ASSERT_PTR_NOT_NULL_FATAL(baseString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(baseStringAfterStrip5And4)
+
+    testingString = stringInitCopy(baseString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(testingString)
+    stringStripTrailingSymbols(testingString, "654", 3);
+    CU_ASSERT_TRUE(stringEqualsTo(testingString, baseStringAfterStrip5And4))
+    stringDeinit(testingString);
+    testingString = NULL;
+
+    stringDeinit(baseStringAfterStrip5And4);
+    stringDeinit(baseString);
 }
 
 void testStringReplaceCharactersFromIdxWithLen(void) {
+    String *baseString = stringInitFromStringBuf("12345");
+    String *firstStringReversed = stringInitFromStringBuf("54321");
+    String *inserteeString = stringInitFromStringBuf("qwe");
+    String *resultingInsertString = stringInitFromStringBuf("1qwe45");
+    String *testString = NULL;
 
+    CU_ASSERT_PTR_NOT_NULL_FATAL(baseString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(firstStringReversed)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(inserteeString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(resultingInsertString)
+
+    testString = stringInitCopy(baseString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(testString)
+    stringReplaceCharactersFromIdxWithLen(testString, 0, testString->count, firstStringReversed);
+    CU_ASSERT_TRUE(stringEqualsTo(testString, firstStringReversed))
+    stringDeinit(testString);
+    testString = NULL;
+
+    testString = stringInitCopy(baseString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(testString)
+    stringReplaceCharactersFromIdxWithLen(testString, 1, 2, inserteeString);
+    CU_ASSERT_TRUE(stringEqualsTo(testString, resultingInsertString))
+    stringDeinit(testString);
+    testString = NULL;
+
+    stringDeinit(resultingInsertString);
+    stringDeinit(inserteeString);
+    stringDeinit(firstStringReversed);
+    stringDeinit(baseString);
 }
 
 void testStringSlice(void) {

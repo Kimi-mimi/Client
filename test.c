@@ -4,14 +4,26 @@
 
 #include <CUnit/Basic.h>
 #include "bytes/test/string_test.h"
+#include "bytes/test/bytes_test.h"
 
 int main(void) {
     int ret;
     CU_pSuite stringSuite = NULL;
+    CU_pSuite bytesSuite = NULL;
 
     if (CU_initialize_registry() != CUE_SUCCESS) {
         printf("Can't initialize cu_registry\n");
         return CU_get_error();
+    }
+
+    bytesSuite = CU_add_suite("Bytes module tests", initSuiteBytes, cleanupSuiteBytes);
+    if (!bytesSuite) {
+        CU_cleanup_registry();
+        return CU_get_error();
+    }
+    if ((ret = fillSuiteWithTestsBytes(bytesSuite)) != CUE_SUCCESS) {
+        CU_cleanup_registry();
+        return ret;
     }
 
     stringSuite = CU_add_suite("String module tests", initSuiteString, cleanupSuiteString);

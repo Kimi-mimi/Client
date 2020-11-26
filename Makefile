@@ -2,12 +2,12 @@ C_VER := -std=c99
 FLAGS := -Wall -Werror -pedantic -g3 -gdwarf-2 -DDEBUG -g
 BUILD_DIR := build
 
-all: create_build_dir main test
+all: main test
 
 create_build_dir:
 	mkdir -p $(BUILD_DIR)
 
-main: main.o client.o client_errors.o bytes.o logger.o string.o smtp_command.o smtp_message.o
+main: create_build_dir main.o client.o client_errors.o bytes.o logger.o string.o smtp_command.o smtp_message.o
 	gcc $(C_VER) $(FLAGS) -o $(BUILD_DIR)/main \
 $(BUILD_DIR)/main.o \
 $(BUILD_DIR)/client.o \
@@ -18,7 +18,7 @@ $(BUILD_DIR)/string.o \
 $(BUILD_DIR)/smtp_command.o \
 $(BUILD_DIR)/smtp_message.o
 
-test: $(BUILD_DIR)/bytes.o $(BUILD_DIR)/string.o $(BUILD_DIR)/smtp_message.o
+test: create_build_dir bytes.o string.o
 	make -f Makefile-test
 
 main.o: main.c client/client.h errors/client_errors.h bytes/bytes.h logger/logger.h
@@ -46,5 +46,6 @@ client_errors.o: errors/client_errors.h errors/client_errors.c logger/logger.h
 	gcc $(C_VER) $(FLAGS) -c errors/client_errors.c -o $(BUILD_DIR)/client_errors.o
 
 clean:
-	make -f Makefile-test clean && rm -rf $(BUILD_DIR) *.log
+	make -f Makefile-test clean \
+&& rm -rf $(BUILD_DIR) *.log
 	
