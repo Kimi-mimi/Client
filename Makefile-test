@@ -1,21 +1,25 @@
 C_VER := -std=c99
-FLAGS := -Wall -Werror -pedantic
+FLAGS := -Wall -Werror -pedantic -g3 -gdwarf-2 -DDEBUG -g
 CUNIT := -lcunit
 BUILD_ROOT_DIR := build
+BUILD_ROOT_SHARED := $(BUILD_ROOT_DIR)/shared
 BUILD_DIR := $(BUILD_ROOT_DIR)/test
 
-all: test
+all: create_build_dir shared test
 
-create_build_dir:
-	mkdir -p $(BUILD_DIR)
-
-test: create_build_dir test.o string_test.o bytes_test.o bytes.o string.o
+test: test.o string_test.o bytes_test.o
 	gcc $(C_VER) $(FLAGS) $(CUNIT) -o $(BUILD_DIR)/test \
 $(BUILD_DIR)/test.o \
 $(BUILD_DIR)/string_test.o \
 $(BUILD_DIR)/bytes_test.o \
-$(BUILD_ROOT_DIR)/string.o \
-$(BUILD_ROOT_DIR)/bytes.o
+$(BUILD_ROOT_SHARED)/string.o \
+$(BUILD_ROOT_SHARED)/bytes.o
+
+create_build_dir:
+	mkdir -p $(BUILD_DIR)
+
+shared:
+	make -f Makefile-shared
 
 test.o: test.c bytes/test/string_test.h
 	gcc $(C_VER) $(FLAGS) -c test.c -o $(BUILD_DIR)/test.o
@@ -25,12 +29,6 @@ string_test.o: bytes/test/string_test.c bytes/test/string_test.h bytes/string.h
 
 bytes_test.o: bytes/test/bytes_test.c bytes/test/bytes_test.h bytes/bytes.h
 	gcc $(C_VER) $(FLAGS) -c bytes/test/bytes_test.c -o $(BUILD_DIR)/bytes_test.o
-
-string.o: bytes/string.h bytes/string.c errors/client_errors.h bytes/bytes.h
-	gcc $(C_VER) $(FLAGS) -c bytes/string.c -o $(BUILD_ROOT_DIR)/string.o
-
-bytes.o: bytes/bytes.h bytes/bytes.c errors/client_errors.h
-	gcc $(C_VER) $(FLAGS) -c bytes/bytes.c -o $(BUILD_ROOT_DIR)/bytes.o
 
 clean:
 	rm -rf $(BUILD_DIR)

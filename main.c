@@ -14,7 +14,7 @@
 
 
 int main(void) {
-    SMTPMessage *message = smtpMessageInitFromFile("mails/1.txt");
+    SMTPMessage *message = smtpMessageInitFromFile("../mails/1.txt");
     String *messageDATA = smtpMessageAsDATA(message);
     printf("%s\n", messageDATA->buf);
 

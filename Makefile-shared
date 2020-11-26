@@ -1,0 +1,20 @@
+C_VER := -std=c99
+FLAGS := -Wall -Werror -pedantic -g3 -gdwarf-2 -DDEBUG -g
+BUILD_ROOT_DIR := build
+BUILD_DIR := $(BUILD_ROOT_DIR)/shared
+
+all: create_build_dir shared
+
+shared: bytes.o string.o
+
+create_build_dir:
+	mkdir -p $(BUILD_DIR)
+
+string.o: bytes/string.h bytes/string.c errors/client_errors.h bytes/bytes.h
+	gcc $(C_VER) $(FLAGS) -c bytes/string.c -o $(BUILD_DIR)/string.o
+
+bytes.o: bytes/bytes.h bytes/bytes.c errors/client_errors.h
+	gcc $(C_VER) $(FLAGS) -c bytes/bytes.c -o $(BUILD_DIR)/bytes.o
+
+clean:
+	rm -rf $(BUILD_DIR)
