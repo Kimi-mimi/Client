@@ -74,18 +74,18 @@ void testBytesHasSuffix(void) {
     suffix = calloc(suffixLen, sizeof(char));
     CU_ASSERT_PTR_NOT_NULL_FATAL(suffix)
 
-    CU_ASSERT_TRUE(hasSuffix(buf, bufLen, suffix, suffixLen))
-    CU_ASSERT_FALSE(hasSuffix(buf, bufLen, suffix, bufLen + 1))
-    CU_ASSERT_FALSE(hasSuffix(buf, bufLen, suffix, 0))
+    CU_ASSERT_EQUAL(hasSuffix(buf, bufLen, suffix, suffixLen), bufLen - suffixLen)
+    CU_ASSERT_EQUAL(hasSuffix(buf, bufLen, suffix, bufLen + 1), -1)
+    CU_ASSERT_EQUAL(hasSuffix(buf, bufLen, suffix, 0), -1)
 
     suffix[0] = 'n';
-    CU_ASSERT_FALSE(hasSuffix(buf, bufLen, suffix, suffixLen))
+    CU_ASSERT_EQUAL(hasSuffix(buf, bufLen, suffix, suffixLen), -1)
 
     freeAndNull(suffix);
     suffixLen = bufLen;
     suffix = calloc(suffixLen, sizeof(char));
     CU_ASSERT_PTR_NOT_NULL_FATAL(suffix)
-    CU_ASSERT_TRUE(hasSuffix(buf, bufLen, suffix, suffixLen));
+    CU_ASSERT_EQUAL(hasSuffix(buf, bufLen, suffix, suffixLen), bufLen - suffixLen);
 
     freeAndNull(suffix);
     freeAndNull(buf);

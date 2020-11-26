@@ -10,6 +10,7 @@
 #define STRING_EMPTY_INITIAL_CAPACITY       16
 #define STRING_CHAR_NOT_FOUND               -1000
 #define CRLF                                "\r\n"
+#define EMPTY_STRING_INITIALIZER            { .buf = "", .count = 0, .capacity = 0, }
 #define NEWLINE_STRING_INITIALIZER          { .buf = "\n", .count = 1, .capacity = 1, }
 #define CRLF_STRING_INITIALIZER             { .buf = CRLF, .count = 2, .capacity = 2, }
 #define DIAMOND_OPEN_STRING_INITIALIZER     { .buf = "<", .count = 1, .capacity = 1, }

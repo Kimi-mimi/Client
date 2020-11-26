@@ -39,9 +39,13 @@ int isBuffersEqual(const char *first, const char *second, size_t length1, size_t
 }
 
 int hasSuffix(const char *bytes, size_t bytesLength, const char *suffix, size_t suffixLength) {
+    int hasSuffix;
+
     if (bytesLength == 0 || suffixLength == 0 || bytesLength < suffixLength)
-        return 0;
-    return isBuffersEqual(bytes + bytesLength - suffixLength, suffix, suffixLength, suffixLength);
+        return -1;
+
+    hasSuffix = isBuffersEqual(bytes + bytesLength - suffixLength, suffix, suffixLength, suffixLength);
+    return !hasSuffix ? -1 : (int) bytesLength -  (int) suffixLength;
 }
 
 int hasSubBuffer(const char *bytes, size_t bytesLength, const char* subBytes, size_t subBytesLength) {

@@ -162,15 +162,15 @@ static void intHandler(int _) {
 }
 
 int clientMain() {
-    int sock;                               // Дескриптор сокета
-    int maxDescr;                           // Максимальный номер дескриптора (для итерации после select)
-    fd_set activeFdSet, readFdSet;          // Множеста дескрипторов для select
-    size_t inputLength = 0;                 // Длинна введенного сообщения из stdin
-    size_t recvLength = 0;                  // Длинна сообщения, которое пришло по сокету
-    size_t outputLength = 0;                // Длинна сообщения для вывода, полученного по сокету
-    char *stdinBuffer = NULL;               // Буфер для сообщения из stdin
-    char *recvBuffer = NULL;                // Буфер для сообщения из сокета
-    char *outputBuffer = NULL;              // Буфер для вывода сообщения, полученного по сокету
+    int sock;                                   // Дескриптор сокета
+    int maxDescr;                               // Максимальный номер дескриптора (для итерации после select)
+    fd_set activeFdSet, readFdSet, writeFdSet;  // Множеста дескрипторов для select
+    size_t inputLength = 0;                     // Длинна введенного сообщения из stdin
+    size_t recvLength = 0;                      // Длинна сообщения, которое пришло по сокету
+    size_t outputLength = 0;                    // Длинна сообщения для вывода, полученного по сокету
+    char *stdinBuffer = NULL;                   // Буфер для сообщения из stdin
+    char *recvBuffer = NULL;                    // Буфер для сообщения из сокета
+    char *outputBuffer = NULL;                  // Буфер для вывода сообщения, полученного по сокету
 
     signal(SIGINT, intHandler);
     signal(SIGTERM, intHandler);
@@ -187,14 +187,16 @@ int clientMain() {
 
     FD_ZERO(&activeFdSet);
     FD_ZERO(&readFdSet);
+    FD_ZERO(&writeFdSet);
 
     FD_SET(sock, &activeFdSet);
     FD_SET(STDIN_FILENO, &activeFdSet);
 
     while(!closeProgram) {
         readFdSet = activeFdSet;
+        writeFdSet = activeFdSet;
 
-        if (select(maxDescr + 1, &readFdSet, NULL, NULL, NULL) < 0) {
+        if (select(maxDescr + 1, &readFdSet, &writeFdSet, NULL, NULL) < 0) {
             if (errno == EINTR) {
                 intHandler(0);
                 break;

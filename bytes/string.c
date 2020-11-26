@@ -101,6 +101,8 @@ int stringHasPrefix(String *self, const String *prefix) {
 }
 
 int stringHasSuffix(String *self, const String *suffix) {
+    int suffixIdx;
+
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;
         errPrint();
@@ -108,13 +110,15 @@ int stringHasSuffix(String *self, const String *suffix) {
     }
 
     if (!suffix)
-        return 0;
+        return STRING_CHAR_NOT_FOUND;
 
-    int suffixIdx = stringContains(self, suffix);
-    return suffixIdx == self->count - suffix->count ? suffixIdx : STRING_CHAR_NOT_FOUND;
+    suffixIdx = hasSuffix(self->buf, self->count, suffix->buf, suffix->count);
+    return suffixIdx == -1 ? STRING_CHAR_NOT_FOUND : suffixIdx;
 }
 
 int stringContains(String *self, const String *substring) {
+    int subBufFirstIdx;
+
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;
         errPrint();
@@ -122,9 +126,11 @@ int stringContains(String *self, const String *substring) {
     }
 
     if (!substring)
-        return 0;
+        return STRING_CHAR_NOT_FOUND;
 
-    return hasSubBuffer(self->buf, self->count, substring->buf, substring->count);
+    subBufFirstIdx = hasSubBuffer(self->buf, self->count, substring->buf, substring->count);
+
+    return subBufFirstIdx == -1 ? STRING_CHAR_NOT_FOUND : subBufFirstIdx;
 }
 
 int stringFirstIndex(String *self, char character) {

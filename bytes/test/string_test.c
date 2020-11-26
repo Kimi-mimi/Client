@@ -173,7 +173,7 @@ void testStringContains(void) {
 
     CU_ASSERT_EQUAL(stringContains(baseString, substringTrue), 1)
     CU_ASSERT_EQUAL(stringContains(baseString, baseString), 0)
-    CU_ASSERT_EQUAL(stringContains(baseString, substringFalse), -1)
+    CU_ASSERT_EQUAL(stringContains(baseString, substringFalse), STRING_CHAR_NOT_FOUND)
 
     stringDeinit(substringFalse);
     stringDeinit(substringTrue);

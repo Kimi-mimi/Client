@@ -99,7 +99,7 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
             continue;
         }
 
-        if (!currentPrefix && stringHasSuffix(lineString, &newlineString) == lineString->count - newlineString.count) {
+        if (!currentPrefix && stringHasSuffix(lineString, &newlineString) != STRING_CHAR_NOT_FOUND) {
             if (stringReplaceCharactersFromIdxWithLen(lineString,
                                                       (int) lineString->count - (int) newlineString.count,
                                                       newlineString.count,
