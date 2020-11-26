@@ -164,11 +164,13 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
     struct dirent *dir;
     SMTPMessage **ans = NULL;
     String *dirnameString;
+    *messagesNumber = 0;
 
     d = opendir(dirname);
     if (!d) {
         errno = CERR_DIR_NOT_FOUND;
         errPrint();
+        *messagesNumber = -1;
         return NULL;
     }
 
@@ -176,10 +178,10 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
             stringStripTrailingSymbols(dirnameString, "/", 1) < 0) {
         errPrint();
         closedir(d);
+        *messagesNumber = -1;
         return NULL;
     }
 
-    *messagesNumber = 0;
     SMTPMessage *current;
     SMTPMessage **tmp;
     String *path, *filenameString;
@@ -198,6 +200,7 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
             freeAndNull(ans);
             stringDeinit(dirnameString);
             closedir(d);
+            *messagesNumber = -1;
             return NULL;
         }
 
@@ -212,6 +215,7 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
             freeAndNull(ans);
             stringDeinit(dirnameString);
             closedir(d);
+            *messagesNumber = -1;
             return NULL;
         }
 
@@ -229,6 +233,7 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
             freeAndNull(ans);
             stringDeinit(dirnameString);
             closedir(d);
+            *messagesNumber = -1;
             return NULL;
         }
 

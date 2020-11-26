@@ -14,12 +14,34 @@
 
 
 int main(void) {
-    SMTPMessage *message = smtpMessageInitFromFile("../mails/1.txt");
-    String *messageDATA = smtpMessageAsDATA(message);
-    printf("%s\n", messageDATA->buf);
+    int messagesNumber = 0;
+    SMTPMessage **messages;
 
-    stringDeinit(messageDATA);
-    smtpMessageDeinit(message);
+    messages = smtpMessageInitFromDir("../mails/", &messagesNumber);
+    if (messagesNumber < 0) {
+        errPrint();
+        return errno;
+    }
+
+    if (messagesNumber == 0) {
+        printf("Dir is empty!\n");
+        return 0;
+    }
+
+    for (int i = 0; i < messagesNumber; i++) {
+        String *messageDATA = smtpMessageAsDATA(messages[i]);
+        if (!messageDATA) {
+            errPrint();
+        } else {
+            printf("\"%s\"\n", messageDATA->buf);
+        }
+
+        stringDeinit(messageDATA);
+        smtpMessageDeinit(messages[i]);
+        messages[i] = NULL;
+    }
+
+    free(messages);
     return 0;
 
 //    int pipeFd[2];                          // Дескриптор пайпов [0] -- read, [1] -- write
