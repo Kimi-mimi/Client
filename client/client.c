@@ -189,6 +189,8 @@ int clientMain() {
                     printf("Соединение с сокетом %d закрывается\n", currentConnection->socket);
                     connectionListHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(
                             connectionListHead, currentConnection->socket);
+                    stringDeinit(recvString);
+                    recvString = NULL;
                     continue;
                 }
 
@@ -196,6 +198,8 @@ int clientMain() {
                     errPrint();
                     connectionListHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(
                             connectionListHead, currentConnection->socket);
+                    stringDeinit(recvString);
+                    recvString = NULL;
                     continue;
                 }
                 stringDeinit(recvString);
