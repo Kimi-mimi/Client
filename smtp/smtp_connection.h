@@ -19,7 +19,7 @@ SMTPConnection *smtpConnectionInitEmpty(int socket);
 
 int smtpConnectionIsNeedToWrite(const SMTPConnection *self);
 
-String *getLatestMessageFromReadBuf(SMTPConnection *self, int *exception);
+String *smtpConnectionGetLatestMessageFromReadBuf(SMTPConnection *self, int *exception);
 
 void smtpConnectionDeinit(SMTPConnection *self);
 

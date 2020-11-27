@@ -3,6 +3,7 @@
 //
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <errno.h>
 #include "../errors/client_errors.h"
 #include "../bytes/string.h"
@@ -38,7 +39,7 @@ int smtpConnectionIsNeedToWrite(const SMTPConnection *self) {
     return self && self->writeBuffer->count;
 }
 
-String *getLatestMessageFromReadBuf(SMTPConnection *self, int *exception) {
+String *smtpConnectionGetLatestMessageFromReadBuf(SMTPConnection *self, int *exception) {
     String *message = NULL;
     String crlfString = CRLF_STRING_INITIALIZER;
     String emptyString = EMPTY_STRING_INITIALIZER;
@@ -83,6 +84,7 @@ String *getLatestMessageFromReadBuf(SMTPConnection *self, int *exception) {
 void smtpConnectionDeinit(SMTPConnection *self) {
     stringDeinit(self->writeBuffer);
     stringDeinit(self->readBuffer);
+    close(self->socket);
     smtpMessageDeinit(self->message);
     freeAndNull(self);
 }

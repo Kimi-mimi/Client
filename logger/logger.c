@@ -47,9 +47,6 @@ int logMessage(const char* message, LogMessageType messageType) {
 }
 
 // ****************************************************************************************************************** //
-
-#define cleanup() fclose(logFile); logFile = NULL
-
 static volatile int quit = 0;           // Флаг завершения процесса-логгера
 
 static void intHandler(int _) {
@@ -62,23 +59,14 @@ int loggerMain(int fdRead, int fdWrite) {
     int selectRet;                      // Возвращаемое значение select()
     char msg[LOG_MESSAGE_SIZE];         // Считанное сообщение
     fd_set activeFdSet, readFdSet;      // Множеста дескрипторов для select
-    struct timeval selectTimeout;       // Таймаут для селекта
 
     pipeFdRead = fdRead;
     pipeFdWrite = fdWrite;
-
-    FILE *logFile = fopen(LOG_FILENAME, "a+");
-    if (!logFile) {
-        errno = CERR_FOPEN;
-        errPrint();
-        return -1;
-    }
 
     pid = fork();
     if (pid < 0) {
         errno = CERR_FORK;
         errPrint();
-        cleanup();
         return -1;
     } else if (pid > 0)
         return pid;
@@ -92,20 +80,17 @@ int loggerMain(int fdRead, int fdWrite) {
     FD_SET(pipeFdRead, &activeFdSet);
 
     while (!quit) {
-        memset(&selectTimeout, 0, sizeof(selectTimeout));
         memset(msg, 0, sizeof(msg));
         readFdSet = activeFdSet;
 
-        selectTimeout.tv_sec = 1;
-        selectRet = select(pipeFdRead + 1, &readFdSet, NULL, NULL, &selectTimeout);
+        selectRet = select(pipeFdRead + 1, &readFdSet, NULL, NULL, NULL);
         if (selectRet < 0) {
             if (errno == EINTR)
                 break;
             errno = CERR_SELECT;
             errPrint();
-            fprintf(logFile, "[ERROR] logger select\n");
-            fprintf(logFile, "[ERROR] Logger is shutting down by the error!\n");
-            cleanup();
+            printf("[ERROR] logger select\n");
+            printf("[ERROR] Logger is shutting down by the error!\n");
             exit(errno);
         } else if (selectRet == 0) {
             continue;
@@ -117,16 +102,14 @@ int loggerMain(int fdRead, int fdWrite) {
                 break;
             errno = CERR_READ;
             errPrint();
-            fprintf(logFile, "[ERROR] receive\n");
-            fprintf(logFile, "[ERROR] Logger is shutting down by the error!\n");
-            cleanup();
+            printf("[ERROR] receive\n");
+            printf("[ERROR] Logger is shutting down by the error!\n");
             exit(error);
         }
 
-        fprintf(logFile, "%s\n", msg);
+        printf("%s\n", msg);
     }
 
-    fprintf(logFile, "[INFO] Shutting down, bye-bye\n");
-    cleanup();
+    printf("[INFO] Shutting down, bye-bye\n");
     exit(0);
 }

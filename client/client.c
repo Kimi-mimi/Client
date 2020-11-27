@@ -10,6 +10,9 @@
 #include "../logger/logger.h"
 #include "../errors/client_errors.h"
 #include "../bytes/bytes.h"
+#include "../smtp/smtp_connection_list.h"
+#include "../smtp/smtp_connection.h"
+#include "../smtp/smtp_message.h"
 
 int initAndConnectSocket(const char* serverHost, int serverPort) {
     int sock;                               // Дескриптор сокета
@@ -36,124 +39,47 @@ int initAndConnectSocket(const char* serverHost, int serverPort) {
     return sock;
 }
 
-size_t readFromStdin(char** output) {
+String *readFromFd(int fd) {
+    size_t recvLength;
     char buf[READ_LENGTH];
-    int quit = 0;
-    size_t fgetsLength = 0;
-    size_t concatLength = 0;
-    unsigned long totalLength = 0;
-
-    if (*output) {
-        free(*output);
-        *output = NULL;
-    }
-
-    while (!quit) {
-        fgets(buf, READ_LENGTH, stdin);
-        fgetsLength = strlen(buf);
-
-        if (buf[fgetsLength - 1] == '\n')
-            quit = 1;
-
-        concatLength = concatBytesWithAllocAndLengths(output, buf, totalLength, fgetsLength, 0);
-        if (concatLength < 0) {
-            errPrint();
-            return concatLength;
-        }
-
-        totalLength += fgetsLength;
-    }
-
-    return totalLength;
-}
-
-size_t readFromFd(char **output, size_t currentLength, int fd) {
-    char buf[READ_LENGTH];
-    size_t recvLength = 0;
-    size_t concatLength = 0;
+    String *ans = NULL;
 
     recvLength = recv(fd, buf, READ_LENGTH, 0);
-
     if (recvLength <= 0) {
-        errPrint();
         errno = CERR_RECV;
-        return recvLength;
-    }
-
-    concatLength = concatBytesWithAllocAndLengths(output, buf, currentLength, recvLength, 0);
-    if (concatLength < 0) {
         errPrint();
-        return concatLength;
+        return NULL;
     }
 
-    return concatLength;
+    ans = stringInitFromStringBuf(buf);
+    if (!ans) {
+        errPrint();
+        return NULL;
+    }
+
+    return ans;
 }
 
-size_t iterSend(int fd, const char* message, size_t len, int flags) {
-    size_t alreadySent = 0;
-    size_t currentSent = 0;
+size_t sendThroughSocket(SMTPConnection *connection, int flags) {
+    size_t sentBytes;
+    const String emptyString = EMPTY_STRING_INITIALIZER;
 
-    while (alreadySent != len) {
-        // Отправляем сообщение
-        currentSent = send(fd, message + alreadySent, len - alreadySent, flags);
-
-        if (currentSent < 0) {
-            errPrint();
-            errno = CERR_SEND;
-            return currentSent;
-        }
-
-        alreadySent += currentSent;
+    sentBytes = send(connection->socket, connection->writeBuffer->buf, connection->writeBuffer->count, flags);
+    if (sentBytes < 0) {
+        errno = CERR_SEND;
+        errPrint();
+        return sentBytes;
     }
 
-    return alreadySent;
-}
-
-size_t splitRecvBufferToOutput(char **output, char **recvBuffer, size_t *recvLength) {
-    int outputOffset;
-    size_t outputLength;
-    size_t newRecvLength;
-    char *newRecvBuffer = NULL;
-
-    if (!*recvBuffer)
-        return 0;
-
-    outputOffset = hasSubBuffer(*recvBuffer, *recvLength, EOT, EOT_LENGTH);
-    if (outputOffset < 0)
-        return 0;
-
-    if (*output)
-        freeAndNull(*output);
-    outputLength = outputOffset + EOT_LENGTH + 1;   // +1 для \0
-    *output = calloc(outputLength, sizeof(char));
-    if (!*output) {
+    if (stringReplaceCharactersFromIdxWithLen(connection->writeBuffer, 0, sentBytes, &emptyString) < 0) {
         errPrint();
-        errno = CERR_MEM_ALLOC;
         return -1;
     }
 
-    newRecvLength = *recvLength - (outputLength - 1);
-    newRecvBuffer = calloc(newRecvLength, sizeof(char));
-    if (!newRecvBuffer) {
-        freeAndNull(*output);
-        errPrint();
-        errno = CERR_MEM_ALLOC;
-        return -1;
-    }
-
-    memcpy(*output, *recvBuffer, (outputLength - 1) * sizeof(char));
-    memcpy(newRecvBuffer, *recvBuffer + (outputLength - 1), newRecvLength * sizeof(char));
-
-    *recvLength = newRecvLength;
-    free(*recvBuffer);
-    *recvBuffer = newRecvBuffer;
-
-    return outputLength;
+    return sentBytes;
 }
 
 // ****************************************************************************************************************** //
-
-#define freeAllBuffers() freeAndNull(stdinBuffer); freeAndNull(recvBuffer); freeAndNull(outputBuffer)
 
 static volatile int closeProgram = 0;       // Флаг мягкого закрытия программы
 
@@ -162,37 +88,70 @@ static void intHandler(int _) {
 }
 
 int clientMain() {
-    int sock;                                   // Дескриптор сокета
-    int maxDescr;                               // Максимальный номер дескриптора (для итерации после select)
-    fd_set activeFdSet, readFdSet, writeFdSet;  // Множеста дескрипторов для select
-    size_t inputLength = 0;                     // Длинна введенного сообщения из stdin
-    size_t recvLength = 0;                      // Длинна сообщения, которое пришло по сокету
-    size_t outputLength = 0;                    // Длинна сообщения для вывода, полученного по сокету
-    char *stdinBuffer = NULL;                   // Буфер для сообщения из stdin
-    char *recvBuffer = NULL;                    // Буфер для сообщения из сокета
-    char *outputBuffer = NULL;                  // Буфер для вывода сообщения, полученного по сокету
+    int newSocket;                                  // Созданный сокет для подключения
+    int maxDescr;                                   // Максимальный номер дескриптора (для итерации после select)
+    fd_set activeFdSet, readFdSet, writeFdSet;      // Множеста дескрипторов для select
+    SMTPConnection *newConnection = NULL;           // Новое подключение
+    SMTPConnection *currentConnection = NULL;       // Обрабатываемое подключение
+    SMTPConnectionList *connectionListHead = NULL;  // Список подключений
+    SMTPMessage **messagesFromDir = NULL;           // Сообщения, прочитанные из директории
+    int messagesFromDirLen = 0;                     // Количество сообщений, прочитанных из папки
+    String *recvString = NULL;                      // Строка, прочитанная с помощью recv
+    String *outputString = NULL;                    // Строка для вывода на экран (логгер)
+    int exception = 0;                              // Переменная для хранения ошибки
 
     signal(SIGINT, intHandler);
     signal(SIGTERM, intHandler);
 
-    sock = initAndConnectSocket(SERVER_HOST, SERVER_PORT);
-    if (sock < 0) {
-        errPrint();
-        return -1;
-    }
-    maxDescr = STDIN_FILENO < sock ? sock : STDIN_FILENO;
-
-    printf("Connected to %s:%d\n", SERVER_HOST, SERVER_PORT);
-    logMessage("Client is connected", info);
-
+    maxDescr = 0;
     FD_ZERO(&activeFdSet);
     FD_ZERO(&readFdSet);
     FD_ZERO(&writeFdSet);
 
-    FD_SET(sock, &activeFdSet);
-    FD_SET(STDIN_FILENO, &activeFdSet);
 
     while(!closeProgram) {
+        messagesFromDir = smtpMessageInitFromDir(MAILS_DIR, &messagesFromDirLen);
+        if (messagesFromDirLen < 0) {
+            errPrint();
+            printf("Ошибка в чтении сообщений из директории %s", MAILS_DIR);
+        } else if (messagesFromDirLen > 0) {
+            for (int i = 0; i < messagesFromDirLen; i++) {
+                newSocket = initAndConnectSocket(SERVER_HOST, SERVER_PORT);
+                if (newSocket < 0) {
+                    errPrint();
+                    printf("Ошибка при создании сокета для письма\n");
+                    smtpMessageDeinit(messagesFromDir[i]);
+                    continue;
+                }
+
+                FD_SET(newSocket, &activeFdSet);
+                maxDescr = maxDescr > newSocket ? maxDescr : newSocket;
+
+                newConnection = smtpConnectionInitEmpty(newSocket);
+                if (!newConnection) {
+                    errPrint();
+                    printf("Ошибка при создании подключения для письма\n");
+                    close(newSocket);
+                    smtpMessageDeinit(messagesFromDir[i]);
+                    continue;
+                }
+
+                newConnection->message = messagesFromDir[i];
+                connectionListHead = smtpConnectionListAddConnectionToList(connectionListHead, newConnection);
+                if (!connectionListHead) {
+                    errPrint();
+                    printf("Ошибка при добавлении подключения в список\n");
+                    close(newSocket);
+                    smtpConnectionDeinit(newConnection);
+                    continue;
+                }
+                newConnection = NULL;
+            }
+
+            messagesFromDirLen = 0;
+            freeAndNull(messagesFromDir);
+        }
+
         readFdSet = activeFdSet;
         writeFdSet = activeFdSet;
 
@@ -202,60 +161,72 @@ int clientMain() {
                 break;
             } else {
                 errno = CERR_SELECT;
-                close(sock);
-                freeAllBuffers();
+                smtpConnectionListDeinitList(connectionListHead);
                 return -1;
             }
         }
 
         for (int i = 0; i < maxDescr + 1; i++) {
-            if (!FD_ISSET(i, &readFdSet))
+            if (!FD_ISSET(i, &readFdSet) && !FD_ISSET(i, &writeFdSet))
                 continue;
 
-            if (i == STDIN_FILENO) {
-                inputLength = readFromStdin(&stdinBuffer);
+            currentConnection = smtpConnectionListGetConnectionWithSocket(connectionListHead, i);
+            if (!currentConnection) {
+                printf("В списке подключений нет подключения для сокета [%d]\n", i);
+                continue;
+            }
 
-                if (isBuffersEqual(stdinBuffer, BREAK_WORD, inputLength, BREAK_WORD_LENGTH)) {
-                    closeProgram = 1;
-                    break;
+            if (FD_ISSET(i, &readFdSet)) {
+                recvString = readFromFd(currentConnection->socket);
+                if (!recvString) {
+                    errPrint();
+                    connectionListHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(
+                            connectionListHead, currentConnection->socket);
+                    continue;
                 }
 
-                if (iterSend(sock, stdinBuffer, inputLength, 0) < 0) {
-                    close(sock);
-                    freeAllBuffers();
-                    return -1;
+                if (recvString->count == 0) {
+                    printf("Соединение с сокетом %d закрывается\n", currentConnection->socket);
+                    connectionListHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(
+                            connectionListHead, currentConnection->socket);
+                    continue;
                 }
 
-                freeAndNull(stdinBuffer);
-            } else if (i == sock) {
-                recvLength = readFromFd(&recvBuffer, recvLength, sock);
+                if (stringConcat(currentConnection->readBuffer, recvString) < 0) {
+                    errPrint();
+                    connectionListHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(
+                            connectionListHead, currentConnection->socket);
+                    continue;
+                }
+                stringDeinit(recvString);
+                recvString = NULL;
 
-                if (recvLength < 0) {
-                    close(sock);
-                    freeAllBuffers();
-                    onError();
-                } else if (recvLength == 0) {
-                    closeProgram = 1;
-                    printf("Remote server has closed the connection\n");
-                    break;
+                outputString = smtpConnectionGetLatestMessageFromReadBuf(currentConnection, &exception);
+                if (exception) {
+                    errPrint();
+                    connectionListHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(
+                            connectionListHead, currentConnection->socket);
+                    continue;
                 }
 
-                outputLength = splitRecvBufferToOutput(&outputBuffer, &recvBuffer, &recvLength);
-                if (outputLength < 0) {
-                    close(sock);
-                    freeAllBuffers();
-                    return -1;
-                } else if (outputLength > 0) {
-//                    printf("<< \"%s\"\n^ %zu bytes above\n", outputBuffer, outputLength);
-                    printf("<< %s", outputBuffer);
-                    freeAndNull(outputBuffer);
-                    outputLength = 0;
+                if (outputString) {
+                    printf("<< \"%s\"\n", outputString->buf);
+                    stringDeinit(outputString);
+                    outputString = NULL;
+                }
+            }
+
+            if (FD_ISSET(i, &writeFdSet) && smtpConnectionIsNeedToWrite(currentConnection)) {
+                if (sendThroughSocket(currentConnection, 0) < 0) {
+                    errPrint();
+                    connectionListHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(
+                            connectionListHead, currentConnection->socket);
+                    continue;
                 }
             }
         }
     }
 
-    close(sock);
-    freeAllBuffers();
+    smtpConnectionListDeinitList(connectionListHead);
     return 0;
 }

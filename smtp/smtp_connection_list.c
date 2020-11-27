@@ -38,29 +38,26 @@ SMTPConnection *smtpConnectionListGetConnectionWithSocket(SMTPConnectionList *he
     return NULL;
 }
 
-int addConnectionToList(SMTPConnectionList *head, SMTPConnection *conn) {
+SMTPConnectionList *smtpConnectionListAddConnectionToList(SMTPConnectionList *head, SMTPConnection *conn) {
     SMTPConnectionList *cur = head;
     SMTPConnectionList *new = NULL;
-
-    if (!head) {
-        errno = CERR_SELF_UNINITIALIZED;
-        errPrint();
-        return -1;
-    }
 
     new = smtpConnectionListInitEmptyNode();
     if (!new) {
         errPrint();
-        return -1;
+        return NULL;
     }
+    new->next = NULL;
+    new->connection = conn;
+
+    if (!head)
+        return new;
 
     while (cur->next)
         cur = cur->next;
 
-    new->next = NULL;
-    new->connection = conn;
     cur->next = new;
-    return 0;
+    return head;
 }
 
 SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPConnectionList *head, int socket) {

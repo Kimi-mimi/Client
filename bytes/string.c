@@ -35,6 +35,15 @@ String *stringInit(const char *initialBuf, size_t initialBufCount) {
     return self;
 }
 
+String *stringInitEmpty() {
+    String *self = stringInit("", 0);
+    if (!self) {
+        errPrint();
+        return NULL;
+    }
+    return self;
+}
+
 String *stringInitFromStringBuf(const char *initialBuf) {
     String *self = NULL;
     self = stringInit(initialBuf, strlen(initialBuf));

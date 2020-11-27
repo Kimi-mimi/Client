@@ -24,6 +24,7 @@ typedef struct {
 } String;
 
 String *stringInit(const char *initialBuf, size_t initialBufCount);
+String *stringInitEmpty();
 String *stringInitFromStringBuf(const char *initialBuf);
 String *stringInitCopy(const String *cpy);
 

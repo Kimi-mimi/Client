@@ -15,7 +15,7 @@ typedef struct _SMTPConnectionList {
 SMTPConnectionList *smtpConnectionListInitEmptyNode();
 
 SMTPConnection *smtpConnectionListGetConnectionWithSocket(SMTPConnectionList *head, int socket);
-int addConnectionToList(SMTPConnectionList *head, SMTPConnection *conn);
+SMTPConnectionList *smtpConnectionListAddConnectionToList(SMTPConnectionList *head, SMTPConnection *conn);
 SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPConnectionList *head, int socket);
 
 void smtpConnectionListDeinitList(SMTPConnectionList *head);

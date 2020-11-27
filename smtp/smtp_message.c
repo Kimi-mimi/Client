@@ -246,6 +246,9 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
         freeAndNull(ans);
         ans = tmp;
         tmp = NULL;
+        if (remove(path->buf) != 0) {
+            printf("Can't delete file %s\n", path->buf);
+        }
         stringDeinit(path);
         stringDeinit(filenameString);
         *messagesNumber += 1;
