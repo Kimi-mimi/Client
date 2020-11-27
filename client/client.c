@@ -206,6 +206,7 @@ int clientMain() {
                     errPrint();
                     connectionListHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(
                             connectionListHead, currentConnection->socket);
+                    exception = 0;
                     continue;
                 }
 
