@@ -26,8 +26,8 @@ int initAndConnectSocket(const char* serverHost, int serverPort) {
     }
 
     serverAddress.sin_family = AF_INET;
-    inet_pton(AF_INET, SERVER_HOST, &serverAddress.sin_addr);
-    serverAddress.sin_port = htons(SERVER_PORT);
+    inet_pton(AF_INET, serverHost, &serverAddress.sin_addr);
+    serverAddress.sin_port = htons(serverPort);
 
     if (connect(sock, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0) {
         close(sock);
