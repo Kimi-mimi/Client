@@ -22,6 +22,10 @@
 #define CERR_SELF_UNINITIALIZED     13
 #define CERR_INVALID_ARG            14
 #define CERR_DIR_NOT_FOUND          15
+#define CERR_RES_QUERY              16
+#define CERR_NS_INIT_PARSE          17
+#define CERR_NS_PARSERR             18
+#define CERR_NO_MX_FOUND            19
 
 #define errPrint() fprintf(stderr, "File \"%s\" -> %s(), line %d\n", __FILE__, __FUNCTION__, __LINE__)
 

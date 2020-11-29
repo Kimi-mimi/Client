@@ -61,6 +61,12 @@ void onError() {
         case CERR_DIR_NOT_FOUND:
             printError("directory not found");
             break;
+        case CERR_RES_QUERY:
+            printError("res_query");
+            break;
+        case CERR_NO_MX_FOUND:
+            printError("No mx found");
+            break;
         default:
             printError("Unknown");
             break;

@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
+#include <resolv.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include "client.h"
@@ -77,6 +78,104 @@ size_t sendThroughSocket(SMTPConnection *connection, int flags) {
     }
 
     return sentBytes;
+}
+
+static String *getRecordForHost(const String *host, int type) {
+    String *recordString = NULL;
+    String *rowString = NULL;
+    int spaceIdx = 0;
+    ns_msg resMsg;
+    ns_rr rr;
+    int resLen = 0;
+    u_char resBuf[4096];
+    char rowBuf[4096];
+
+    resLen = res_query(host->buf, ns_c_any, type, resBuf, sizeof(resBuf));
+    if (resLen < 0) {
+        errno = CERR_RES_QUERY;
+        errPrint();
+        return NULL;
+    }
+
+    if (ns_initparse(resBuf, resLen, &resMsg) < 0) {
+        errno = CERR_NS_INIT_PARSE;
+        errPrint();
+        return NULL;
+    }
+
+    resLen = ns_msg_count(resMsg, ns_s_an);
+    if (resLen == 0) {
+        errno = CERR_NO_MX_FOUND;
+        errPrint();
+        return NULL;
+    }
+
+    if (ns_parserr(&resMsg, ns_s_an, 0, &rr) < 0) {
+        errno = CERR_NS_PARSERR;
+        errPrint();
+        return NULL;
+    }
+
+    ns_sprintrr(&resMsg, &rr, NULL, NULL, rowBuf, sizeof(rowBuf));
+    rowString = stringInitFromStringBuf(rowBuf);
+    if (!rowString) {
+        errPrint();
+        return NULL;
+    }
+    printf("rowBuf: [%s]\n", rowString->buf);
+
+    spaceIdx = stringLastIndexInRange(rowString, " \t\0", 3);
+    if (spaceIdx == STRING_CHAR_NOT_FOUND)
+        errno = CERR_INVALID_ARG;
+    if (spaceIdx < 0) {
+        errPrint();
+        stringDeinit(rowString);
+        return NULL;
+    }
+
+    recordString = stringSlice(rowString, spaceIdx + 1, rowString->count);
+    if (!recordString) {
+        errPrint();
+        stringDeinit(rowString);
+        return NULL;
+    }
+
+    stringDeinit(rowString);
+    return recordString;
+}
+
+String *getIpByHost(const String *host, int *port) {
+    const String kimiMimiHostNameString = SERVER_HOST_STRING_INITIALIZER;
+    String *mxString = NULL;
+    String *ipString = NULL;
+
+
+    if (stringEqualsTo(host, &kimiMimiHostNameString)) {
+        ipString = stringInitFromStringBuf(SERVER_HOST);
+        if (!ipString) {
+            errPrint();
+            return NULL;
+        }
+        *port = SERVER_PORT;
+        return ipString;
+    }
+
+    mxString = getRecordForHost(host, ns_t_mx);
+    if (!mxString) {
+        errPrint();
+        return NULL;
+    }
+
+    ipString = getRecordForHost(mxString, ns_t_a);
+    if (!ipString) {
+        errPrint();
+        stringDeinit(mxString);
+        return NULL;
+    }
+
+    stringDeinit(mxString);
+    *port = 25;
+    return ipString;
 }
 
 // ****************************************************************************************************************** //

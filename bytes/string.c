@@ -142,7 +142,7 @@ int stringContains(String *self, const String *substring) {
     return subBufFirstIdx == -1 ? STRING_CHAR_NOT_FOUND : subBufFirstIdx;
 }
 
-int stringFirstIndex(String *self, char character) {
+int stringFirstIndex(const String *self, char character) {
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;
         errPrint();
@@ -155,6 +155,41 @@ int stringFirstIndex(String *self, char character) {
     for (int i = 0; i < self->count; i++)
         if (self->buf[i] == character)
             return i;
+
+    return STRING_CHAR_NOT_FOUND;
+}
+
+int stringLastIndex(const String *self, char character) {
+    if (!self) {
+        errno = CERR_SELF_UNINITIALIZED;
+        errPrint();
+        return -1;
+    }
+
+    if (!self->buf || self->count == 0)
+        return STRING_CHAR_NOT_FOUND;
+
+    for (int i = (int) self->count - 1; i >= 0; i--)
+        if (self->buf[i] == character)
+            return i;
+
+    return STRING_CHAR_NOT_FOUND;
+}
+
+int stringLastIndexInRange(const String *self, const char *characters, int rangeLen) {
+    if (!self) {
+        errno = CERR_SELF_UNINITIALIZED;
+        errPrint();
+        return -1;
+    }
+
+    if (!self->buf || self->count == 0)
+        return STRING_CHAR_NOT_FOUND;
+
+    for (int i = (int) self->count - 1; i >= 0; i--)
+        for (int j = 0; j < rangeLen; j++)
+            if (self->buf[i] == characters[j])
+                return i;
 
     return STRING_CHAR_NOT_FOUND;
 }
@@ -246,6 +281,34 @@ int stringAddSubstringAtIdx(String *self, int idx, const String *substring) {
     return self->count;
 }
 
+int stringLowercaseLatin(String *self) {
+    if (!self) {
+        errno = CERR_SELF_UNINITIALIZED;
+        errPrint();
+        return -1;
+    }
+
+    for (int i = 0; i < self->count; i++)
+        if (self->buf[i] >= 'A' && self->buf[i] <= 'Z')
+            self->buf[i] += 'a' - 'A';
+
+    return 0;
+}
+
+int stringUppercaseLatin(String *self) {
+    if (!self) {
+        errno = CERR_SELF_UNINITIALIZED;
+        errPrint();
+        return -1;
+    }
+
+    for (int i = 0; i < self->count; i++)
+        if (self->buf[i] >= 'a' && self->buf[i] <= 'z')
+            self->buf[i] -= 'a' - 'A';
+
+    return 0;
+}
+
 String *stringSlice(String *self, int from, int to) {
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;
@@ -285,7 +348,7 @@ String *stringSlice(String *self, int from, int to) {
     return res;
 }
 
-int stringEqualsTo(String *self, const String *another) {
+int stringEqualsTo(const String *self, const String *another) {
     if (!self || !another)
         return 0;
 

@@ -14,35 +14,17 @@
 
 
 int main(void) {
-    int messagesNumber = 0;
-    SMTPMessage **messages;
+    String *yaRuDomain = stringInitFromStringBuf("google.com");
+    String *ipString = NULL;
+    int port = 0;
 
-    messages = smtpMessageInitFromDir("../mails/", &messagesNumber);
-    if (messagesNumber < 0) {
-        errPrint();
-        return errno;
-    }
+    ipString = getIpByHost(yaRuDomain, &port);
 
-    if (messagesNumber == 0) {
-        printf("Dir is empty!\n");
-        return 0;
-    }
+    printf("domain: [%s], ip: [%s]\n", yaRuDomain->buf, ipString->buf);
 
-    for (int i = 0; i < messagesNumber; i++) {
-        String *messageDATA = smtpMessageAsDATA(messages[i]);
-        if (!messageDATA) {
-            errPrint();
-        } else {
-            printf("\"%s\"\n", messageDATA->buf);
-        }
+    stringDeinit(ipString);
+    stringDeinit(yaRuDomain);
 
-        stringDeinit(messageDATA);
-        smtpMessageDeinit(messages[i]);
-        messages[i] = NULL;
-    }
-
-    free(messages);
-    return 0;
 
 //    int pipeFd[2];                          // Дескриптор пайпов [0] -- read, [1] -- write
 //    int loggerPid;                          // PID логгера

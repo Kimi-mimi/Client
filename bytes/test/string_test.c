@@ -8,30 +8,6 @@
 #include "string_test.h"
 
 
-int initSuiteString(void) {
-    return 0;
-}
-
-int cleanupSuiteString(void) {
-    return 0;
-}
-
-int fillSuiteWithTestsString(CU_pSuite suite) {
-    if (!CU_add_test(suite, "Test init with string literal", testStringCreateFromLiteral) ||
-            !CU_add_test(suite, "Test copy string", testStringInitCopy) ||
-            !CU_add_test(suite, "Test string equals to", testStringEqualsTo) ||
-            !CU_add_test(suite, "Test string concat", testStringConcat) ||
-            !CU_add_test(suite, "Test string has prefix", testStringHasPrefix) ||
-            !CU_add_test(suite, "Test string has suffix", testStringHasSuffix) ||
-            !CU_add_test(suite, "Test string has substring", testStringContains) ||
-            !CU_add_test(suite, "Test string strip trailing symbols", testStringStripTrailingSymbols) ||
-            !CU_add_test(suite, "Test string replace chars from idx with len", testStringReplaceCharactersFromIdxWithLen) ||
-            !CU_add_test(suite, "Test string slice", testStringSlice)) {
-        return CU_get_error();
-    }
-    return CUE_SUCCESS;
-}
-
 void testStringCreateFromLiteral(void) {
     const char *literal = "12345";
     const int literalLen = strlen(literal);
@@ -253,4 +229,69 @@ void testStringSlice(void) {
 
     stringDeinit(baseStringFirstToThirdIdx);
     stringDeinit(baseString);
+}
+
+void testStringLowercaseLatin(void) {
+    String *lowerString = stringInitFromStringBuf("hello, user 21");
+    String *upperString = stringInitFromStringBuf("HELLO, USER 21");
+    String *partiallyUpperString = stringInitFromStringBuf("Hello, UsEr 21");
+
+    CU_ASSERT_PTR_NOT_NULL_FATAL(lowerString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(upperString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(partiallyUpperString)
+
+    stringLowercaseLatin(upperString);
+    stringLowercaseLatin(partiallyUpperString);
+    CU_ASSERT_TRUE(stringEqualsTo(lowerString, upperString));
+    CU_ASSERT_TRUE(stringEqualsTo(lowerString, partiallyUpperString));
+
+    stringDeinit(partiallyUpperString);
+    stringDeinit(upperString);
+    stringDeinit(lowerString);
+}
+
+void testStringUppercaseLatin(void) {
+    String *upperString = stringInitFromStringBuf("HELLO, USER 21");
+    String *lowerString = stringInitFromStringBuf("hello, user 21");
+    String *partiallyLowerString = stringInitFromStringBuf("Hello, UsEr 21");
+
+    CU_ASSERT_PTR_NOT_NULL_FATAL(lowerString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(upperString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(partiallyLowerString)
+
+    stringUppercaseLatin(lowerString);
+    stringUppercaseLatin(partiallyLowerString);
+    CU_ASSERT_TRUE(stringEqualsTo(upperString, lowerString));
+    CU_ASSERT_TRUE(stringEqualsTo(upperString, partiallyLowerString));
+
+    stringDeinit(partiallyLowerString);
+    stringDeinit(upperString);
+    stringDeinit(lowerString);
+}
+
+
+int initSuiteString(void) {
+    return 0;
+}
+
+int cleanupSuiteString(void) {
+    return 0;
+}
+
+int fillSuiteWithTestsString(CU_pSuite suite) {
+    if (!CU_add_test(suite, "Test init with string literal", testStringCreateFromLiteral) ||
+        !CU_add_test(suite, "Test copy string", testStringInitCopy) ||
+        !CU_add_test(suite, "Test string equals to", testStringEqualsTo) ||
+        !CU_add_test(suite, "Test string concat", testStringConcat) ||
+        !CU_add_test(suite, "Test string has prefix", testStringHasPrefix) ||
+        !CU_add_test(suite, "Test string has suffix", testStringHasSuffix) ||
+        !CU_add_test(suite, "Test string has substring", testStringContains) ||
+        !CU_add_test(suite, "Test string strip trailing symbols", testStringStripTrailingSymbols) ||
+        !CU_add_test(suite, "Test string replace chars from idx with len", testStringReplaceCharactersFromIdxWithLen) ||
+        !CU_add_test(suite, "Test string slice", testStringSlice) ||
+        !CU_add_test(suite, "Test string lowercase latin", testStringLowercaseLatin) ||
+        !CU_add_test(suite, "Test string uppercase latin", testStringUppercaseLatin)) {
+        return CU_get_error();
+    }
+    return CUE_SUCCESS;
 }

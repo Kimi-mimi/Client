@@ -120,6 +120,7 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
         }
 
         if (currentPrefix == &fromPrefix) {
+            stringLowercaseLatin(slicedLineString);
             stringClear(self->from);
             self->from->buf = slicedLineString->buf;
             self->from->count = slicedLineString->count;
@@ -130,6 +131,7 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
             self->subject->count = slicedLineString->count;
             self->subject->capacity = slicedLineString->capacity;
         } else if (currentPrefix == &toPrefix) {
+            stringLowercaseLatin(slicedLineString);
             if (smtpMessageAddRecipient(self, slicedLineString) < 0) {
                 errPrint();
                 stringDeinit(slicedLineString);
@@ -314,7 +316,34 @@ String *smtpMessageGetAnyHeader(const char* headerName, const String *headerData
     return ans;
 }
 
-String *smtpMessageGetFromHeader(SMTPMessage *self) {
+String *smtpMessageGetFromDomain(const SMTPMessage *self) {
+    int monkeyIdx;
+    String *domain = NULL;
+
+    if (!self) {
+        errno = CERR_SELF_UNINITIALIZED;
+        errPrint();
+        return NULL;
+    }
+
+    monkeyIdx = stringFirstIndex(self->from, '@');
+    if (monkeyIdx == STRING_CHAR_NOT_FOUND)
+        errno = CERR_INVALID_ARG;
+    if (monkeyIdx < 0) {
+        errPrint();
+        return NULL;
+    }
+
+    domain = stringSlice(self->from + 1, monkeyIdx, self->from->count);
+    if (!domain) {
+        errPrint();
+        return NULL;
+    }
+
+    return domain;
+}
+
+String *smtpMessageGetFromHeader(const SMTPMessage *self) {
     String *header = NULL;
 
     if (!self) {
@@ -331,7 +360,7 @@ String *smtpMessageGetFromHeader(SMTPMessage *self) {
     return header;
 }
 
-String *smtpMessageGetToHeader(SMTPMessage *self) {
+String *smtpMessageGetToHeader(const SMTPMessage *self) {
     String *header = NULL;
     String *current = NULL;
     const String crlfString = CRLF_STRING_INITIALIZER;
@@ -372,7 +401,7 @@ String *smtpMessageGetToHeader(SMTPMessage *self) {
     return header;
 }
 
-String *smtpMessageGetSubjectHeader(SMTPMessage *self) {
+String *smtpMessageGetSubjectHeader(const SMTPMessage *self) {
     String *header = NULL;
 
     if (!self) {
@@ -389,7 +418,7 @@ String *smtpMessageGetSubjectHeader(SMTPMessage *self) {
     return header;
 }
 
-String *smtpMessageAsDATA(SMTPMessage *self) {
+String *smtpMessageAsDATA(const SMTPMessage *self) {
     String *ans = NULL;
     String *fromHeader = NULL;
     String *toHeader = NULL;

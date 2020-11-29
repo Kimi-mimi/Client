@@ -33,15 +33,19 @@ int stringConcat(String *self, const String *append);
 int stringHasPrefix(String *self, const String *prefix);
 int stringHasSuffix(String *self, const String *suffix);
 int stringContains(String *self, const String *substring);
-int stringFirstIndex(String *self, char character);
+int stringFirstIndex(const String *self, char character);
+int stringLastIndex(const String *self, char character);
+int stringLastIndexInRange(const String *self, const char *characters, int rangeLen);
 
 int stringStripTrailingSymbols(String *self, const char *symbols, int symbolsLen);
 int stringReplaceCharactersFromIdxWithLen(String *self, int startIdx, size_t len, const String *with);
 int stringAddSubstringAtIdx(String *self, int idx, const String *substring);
+int stringLowercaseLatin(String *self);
+int stringUppercaseLatin(String *self);
 
 String *stringSlice(String *self, int from, int to);
 
-int stringEqualsTo(String *self, const String *another);
+int stringEqualsTo(const String *self, const String *another);
 
 void stringClear(String *self);
 void stringDeinit(String *self);

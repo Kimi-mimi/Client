@@ -1,5 +1,6 @@
 C_VER := -std=c99
 FLAGS := -Wall -Werror -pedantic -g3 -gdwarf-2 -DDEBUG -g
+LIBS := -lresolv
 BUILD_DIR := build
 BUILD_DIR_SHARED := $(BUILD_DIR)/shared
 
@@ -7,7 +8,7 @@ all: create_build_dir shared main test
 
 main: create_build_dir shared main.o client.o client_errors.o logger.o smtp_command.o smtp_message.o
 main: smtp_connection.o smtp_connection_list.o
-	gcc $(C_VER) $(FLAGS) -o $(BUILD_DIR)/main \
+	gcc $(C_VER) $(FLAGS) $(LIBS) -o $(BUILD_DIR)/main \
 $(BUILD_DIR)/main.o \
 $(BUILD_DIR)/client.o \
 $(BUILD_DIR)/client_errors.o \

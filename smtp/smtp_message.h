@@ -21,10 +21,12 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber);
 
 int smtpMessageAddRecipient(SMTPMessage *self, String *recipient);
 
-String *smtpMessageGetFromHeader(SMTPMessage *self);
-String *smtpMessageGetToHeader(SMTPMessage *self);
-String *smtpMessageGetSubjectHeader(SMTPMessage *self);
-String *smtpMessageAsDATA(SMTPMessage *self);
+String *smtpMessageGetFromDomain(const SMTPMessage *self);
+
+String *smtpMessageGetFromHeader(const SMTPMessage *self);
+String *smtpMessageGetToHeader(const SMTPMessage *self);
+String *smtpMessageGetSubjectHeader(const SMTPMessage *self);
+String *smtpMessageAsDATA(const SMTPMessage *self);
 
 void smtpMessageDeinit(SMTPMessage *self);
 
