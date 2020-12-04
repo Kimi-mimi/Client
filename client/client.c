@@ -41,7 +41,7 @@ int initAndConnectSocket(const char* serverHost, int serverPort) {
 }
 
 String *readFromFd(int fd) {
-    size_t recvLength;
+    ssize_t recvLength;
     char buf[READ_LENGTH];
     String *ans = NULL;
 
@@ -61,8 +61,8 @@ String *readFromFd(int fd) {
     return ans;
 }
 
-size_t sendThroughSocket(SMTPConnection *connection, int flags) {
-    size_t sentBytes;
+ssize_t sendThroughSocket(SMTPConnection *connection, int flags) {
+    ssize_t sentBytes;
     const String emptyString = EMPTY_STRING_INITIALIZER;
 
     sentBytes = send(connection->socket, connection->writeBuffer->buf, connection->writeBuffer->count, flags);

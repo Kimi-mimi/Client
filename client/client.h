@@ -16,7 +16,7 @@
 int initAndConnectSocket(const char* serverHost, int serverPort);
 
 String *readFromFd(int fd);
-size_t sendThroughSocket(SMTPConnection *connection, int flags);
+ssize_t sendThroughSocket(SMTPConnection *connection, int flags);
 
 String *getIpByHost(const String *host, int *port);
 
