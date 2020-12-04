@@ -81,17 +81,11 @@ static void intHandler(int _) {
 
 int loggerMain() {
     int pid;                            // PID процесса-логгера
-    size_t received;                    // Размер считанного сообщения из msgrcv
+    ssize_t received;                   // Размер считанного сообщения из msgrcv
     LoggerMessage loggerMessage;        // Сообщение логгера
+    size_t messageSize;
 
-    key_t key = ftok(".", 'B');
-    if (key < 0) {
-        errno = CERR_FTOK;
-        errPrint();
-        return -1;
-    }
-
-    msQueueFd = msgget(key, 0644 | IPC_CREAT);
+    msQueueFd = msgget(IPC_PRIVATE, 0666);
     if (msQueueFd < 0) {
         errno = CERR_MSGGET;
         errPrint();
@@ -107,37 +101,43 @@ int loggerMain() {
     } else if (pid > 0)
         return pid;
 
+    signal(SIGINT, intHandler);
+    signal(SIGTERM, intHandler);
+
     FILE *logFile = fopen(LOG_FILENAME, "w");
     if (!logFile) {
         errno = CERR_FOPEN;
         errPrint();
-        return -1;
+        msgctl(msQueueFd, IPC_RMID, NULL);
+        onError();
     }
 
+    printf("[BEGIN] Очередь сообщений создана\n");
     fprintf(logFile, "[BEGIN] Очередь сообщений создана\n");
-    signal(SIGINT, intHandler);
-    signal(SIGTERM, intHandler);
-
+    messageSize = sizeof(loggerMessage.message);
     while (!quit) {
         memset(&loggerMessage, 0, sizeof(loggerMessage));
 
-        received = msgrcv(msQueueFd, &loggerMessage, sizeof(loggerMessage.message), 0, 0);
+        received = msgrcv(msQueueFd, &loggerMessage, messageSize, 0, 0);
         if (received < 0) {
-            if (errno != EINTR)
-                break;
-            errno = CERR_MSGRCV;
-            errPrint();
-            break;
+            if (errno != EINTR) {
+                errno = CERR_MSGRCV;
+                errPrint();
+            } else {
+                errno = 0;
+            }
+            quit = 1;
         }
 
-        fprintf(logFile, "client >> %s\n", loggerMessage.message);
-        printf("client >> %s\n", loggerMessage.message);
-
+        if (received > 0) {
+            printf("%s\n", loggerMessage.message);
+            fprintf(logFile, "%s\n", loggerMessage.message);
+        }
     }
 
+    printf("[END] Завершение работы логгера...\n");
     fprintf(logFile, "[END] Завершение работы логгера...\n");
-    printf("Logger end\n");
     fclose(logFile);
     msgctl(msQueueFd, IPC_RMID, NULL);
-    exit(0);
+    exit(errno);
 }

@@ -26,13 +26,23 @@ int main(void) {
 //    stringDeinit(yaRuDomain);
 
     int pid = 0;
+    int loggerExitStatus = 0;
     pid = loggerMain();
     printf("logger pid = [%d]\n", pid);
 
-    logMessage("Hello, logger!\n", info);
+    logMessage("Hello, logger!", info);
+    sleep(1);
 
     kill(pid, SIGINT);
-    wait(NULL);
+    waitpid(pid, &loggerExitStatus, 0);
+    if (WIFEXITED(loggerExitStatus)) {
+        printf("Logger exited with status: %d\n", WEXITSTATUS(loggerExitStatus));
+    }
+
+    if (WIFSIGNALED(loggerExitStatus)) {
+        printf("Logger exited by unhandled signal %d\n", WTERMSIG(loggerExitStatus));
+    }
+
     printf("main over\n");
     return 0;
 

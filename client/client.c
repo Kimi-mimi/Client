@@ -182,7 +182,7 @@ String *getIpByHost(const String *host, int *port) {
 
 static volatile int closeProgram = 0;       // Флаг мягкого закрытия программы
 
-static void intHandler(int _) {
+static void intHandler(int signal) {
     closeProgram = 1;
 }
 
@@ -195,6 +195,9 @@ int clientMain() {
     SMTPConnectionList *connectionListHead = NULL;  // Список подключений
     SMTPMessage **messagesFromDir = NULL;           // Сообщения, прочитанные из директории
     int messagesFromDirLen = 0;                     // Количество сообщений, прочитанных из папки
+    String *newHostnameString = NULL;               // Хост, полученный из нового сообщения
+    String *newIpString = NULL;                     // Айпишник для нового подключения
+    int newPort = 0;                                // Порт для нового подключения
     String *recvString = NULL;                      // Строка, прочитанная с помощью recv
     String *outputString = NULL;                    // Строка для вывода на экран (логгер)
     int exception = 0;                              // Переменная для хранения ошибки
@@ -207,7 +210,6 @@ int clientMain() {
     FD_ZERO(&readFdSet);
     FD_ZERO(&writeFdSet);
 
-
     while(!closeProgram) {
         messagesFromDir = smtpMessageInitFromDir(MAILS_DIR, &messagesFromDirLen);
         if (messagesFromDirLen < 0) {
@@ -215,13 +217,37 @@ int clientMain() {
             printf("Ошибка в чтении сообщений из директории %s", MAILS_DIR);
         } else if (messagesFromDirLen > 0) {
             for (int i = 0; i < messagesFromDirLen; i++) {
-                newSocket = initAndConnectSocket(SERVER_HOST, SERVER_PORT);
-                if (newSocket < 0) {
+                newHostnameString = smtpMessageGetFromDomain(messagesFromDir[i]);
+                if (!newHostnameString) {
                     errPrint();
-                    printf("Ошибка при создании сокета для письма\n");
                     smtpMessageDeinit(messagesFromDir[i]);
                     continue;
                 }
+
+                newIpString = getIpByHost(newHostnameString, &newPort);
+                if (!newIpString) {
+                    errPrint();
+                    stringDeinit(newHostnameString);
+                    newHostnameString = NULL;
+                    smtpMessageDeinit(messagesFromDir[i]);
+                    continue;
+                }
+
+                newSocket = initAndConnectSocket(newIpString->buf, newPort);
+                if (newSocket < 0) {
+                    errPrint();
+                    printf("Ошибка при создании сокета для письма\n");
+                    stringDeinit(newHostnameString);
+                    newHostnameString = NULL;
+                    stringDeinit(newIpString);
+                    newIpString = NULL;
+                    smtpMessageDeinit(messagesFromDir[i]);
+                    continue;
+                }
+                stringDeinit(newHostnameString);
+                newHostnameString = NULL;
+                stringDeinit(newIpString);
+                newIpString = NULL;
 
                 FD_SET(newSocket, &activeFdSet);
                 maxDescr = maxDescr > newSocket ? maxDescr : newSocket;
@@ -256,7 +282,7 @@ int clientMain() {
 
         if (select(maxDescr + 1, &readFdSet, &writeFdSet, NULL, NULL) < 0) {
             if (errno == EINTR) {
-                intHandler(0);
+                intHandler(SIGINT);
                 break;
             } else {
                 errno = CERR_SELECT;
