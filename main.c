@@ -14,16 +14,27 @@
 
 
 int main(void) {
-    String *yaRuDomain = stringInitFromStringBuf("google.com");
-    String *ipString = NULL;
-    int port = 0;
+//    String *yaRuDomain = stringInitFromStringBuf("google.com");
+//    String *ipString = NULL;
+//    int port = 0;
+//
+//    ipString = getIpByHost(yaRuDomain, &port);
+//
+//    printf("domain: [%s], ip: [%s]\n", yaRuDomain->buf, ipString->buf);
+//
+//    stringDeinit(ipString);
+//    stringDeinit(yaRuDomain);
 
-    ipString = getIpByHost(yaRuDomain, &port);
+    int pid = 0;
+    pid = loggerMain();
+    printf("logger pid = [%d]\n", pid);
 
-    printf("domain: [%s], ip: [%s]\n", yaRuDomain->buf, ipString->buf);
+    logMessage("Hello, logger!\n", info);
 
-    stringDeinit(ipString);
-    stringDeinit(yaRuDomain);
+    kill(pid, SIGINT);
+    wait(NULL);
+    printf("main over\n");
+    return 0;
 
 
 //    int pipeFd[2];                          // Дескриптор пайпов [0] -- read, [1] -- write

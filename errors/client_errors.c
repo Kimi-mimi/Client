@@ -37,7 +37,7 @@ void onError() {
         case CERR_FTOK:
             printError("ftok");
             break;
-        case CERR_PIPE:
+        case CERR_MSGGET:
             printError("pipe");
             break;
         case CERR_FORK:
@@ -66,6 +66,12 @@ void onError() {
             break;
         case CERR_NO_MX_FOUND:
             printError("No mx found");
+            break;
+        case CERR_MSGSND:
+            printError("msgsnd");
+            break;
+        case CERR_MSGRCV:
+            printError("msgrcv");
             break;
         default:
             printError("Unknown");

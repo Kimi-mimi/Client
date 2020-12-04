@@ -6,7 +6,9 @@
 #define CLIENT_LOGGER_H
 
 #define LOG_MESSAGE_SIZE    1024
-#define LOG_FILENAME        "client.log"
+#define LOG_FILENAME        "../client.log"
+
+#include "../bytes/string.h"
 
 typedef enum {
     info,
@@ -14,7 +16,12 @@ typedef enum {
     error,
 } LogMessageType;
 
-int loggerMain(int fdRead, int fdWrite);
+typedef struct {
+    long msg_type;
+    char message[LOG_MESSAGE_SIZE];
+} LoggerMessage;
+
+int loggerMain();
 
 int logMessage(const char *message, LogMessageType messageType);
 

@@ -9,41 +9,67 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/ipc.h>
+#include <sys/msg.h>
 #include "logger.h"
 #include "../errors/client_errors.h"
 
-static int pipeFdRead, pipeFdWrite;     // Дескрипторы пайпов
+static int msQueueFd;                               // Дескриптор очереди сообщений
 
 int logMessage(const char* message, LogMessageType messageType) {
-    int ret;                                        // Возвращаемое значение
-    const char *messagePrefix;                      // Префикс сообщения
-    char resultingMessage[LOG_MESSAGE_SIZE] = {0};  // Полный текст сообщения
+    String *messageString;                          // Строка сообщения
+    String *prefixString;                           // Строка префикса
+    size_t messageLen;                              // Длинна отправляемого сообщения
+    LoggerMessage loggerMessage;                    // Сообщение
+
+    messageString = stringInitFromStringBuf(message);
+    if (!messageString) {
+        errPrint();
+        return -1;
+    }
 
     switch (messageType) {
         case warning:
-            messagePrefix = "[WARNING] ";
+            prefixString = stringInitFromStringBuf("[WARNING] ");
             break;
         case error:
-            messagePrefix = "[ERROR] ";
+            prefixString = stringInitFromStringBuf("[ERROR] ");
             break;
         case info:
-            messagePrefix = "[INFO] ";
+            prefixString = stringInitFromStringBuf("[INFO] ");
             break;
         default:
-            messagePrefix = "[NONE] ";
+            prefixString = stringInitFromStringBuf("[NONE] ");
             break;
     }
-
-    memcpy(resultingMessage, messagePrefix, strlen(messagePrefix));
-    strcat(resultingMessage, message);
-
-    ret = write(pipeFdWrite, resultingMessage, strlen(resultingMessage));
-    if (ret < -1) {
-        errno = CERR_WRITE;
+    if (!prefixString) {
         errPrint();
+        stringDeinit(messageString);
+        return -1;
     }
 
-    return ret;
+    if (stringConcat(prefixString, messageString) < 0) {
+        errPrint();
+        stringDeinit(prefixString);
+        stringDeinit(messageString);
+        return -1;
+    }
+
+    messageLen = prefixString->count > LOG_MESSAGE_SIZE - 1 ? LOG_MESSAGE_SIZE - 1 : prefixString->count;
+    loggerMessage.msg_type = 1;
+    memset(loggerMessage.message, 0, sizeof(loggerMessage.message));
+    memcpy(loggerMessage.message, prefixString->buf, messageLen);
+
+    if (msgsnd(msQueueFd, &loggerMessage, sizeof(loggerMessage.message), 0) < 0) {
+        errno = CERR_MSGSND;
+        errPrint();
+        stringDeinit(prefixString);
+        stringDeinit(messageString);
+        return -1;
+    }
+
+    stringDeinit(prefixString);
+    stringDeinit(messageString);
+    return 0;
 }
 
 // ****************************************************************************************************************** //
@@ -53,63 +79,65 @@ static void intHandler(int _) {
     quit = 1;
 }
 
-int loggerMain(int fdRead, int fdWrite) {
+int loggerMain() {
     int pid;                            // PID процесса-логгера
-    int received;                       // Размер считанного сообщения
-    int selectRet;                      // Возвращаемое значение select()
-    char msg[LOG_MESSAGE_SIZE];         // Считанное сообщение
-    fd_set activeFdSet, readFdSet;      // Множеста дескрипторов для select
+    size_t received;                    // Размер считанного сообщения из msgrcv
+    LoggerMessage loggerMessage;        // Сообщение логгера
 
-    pipeFdRead = fdRead;
-    pipeFdWrite = fdWrite;
+    key_t key = ftok(".", 'B');
+    if (key < 0) {
+        errno = CERR_FTOK;
+        errPrint();
+        return -1;
+    }
+
+    msQueueFd = msgget(key, 0644 | IPC_CREAT);
+    if (msQueueFd < 0) {
+        errno = CERR_MSGGET;
+        errPrint();
+        return -1;
+    }
 
     pid = fork();
     if (pid < 0) {
         errno = CERR_FORK;
         errPrint();
+        msgctl(msQueueFd, IPC_RMID, NULL);
         return -1;
     } else if (pid > 0)
         return pid;
 
+    FILE *logFile = fopen(LOG_FILENAME, "w");
+    if (!logFile) {
+        errno = CERR_FOPEN;
+        errPrint();
+        return -1;
+    }
+
+    fprintf(logFile, "[BEGIN] Очередь сообщений создана\n");
     signal(SIGINT, intHandler);
     signal(SIGTERM, intHandler);
 
-    FD_ZERO(&activeFdSet);
-    FD_ZERO(&readFdSet);
-
-    FD_SET(pipeFdRead, &activeFdSet);
-
     while (!quit) {
-        memset(msg, 0, sizeof(msg));
-        readFdSet = activeFdSet;
+        memset(&loggerMessage, 0, sizeof(loggerMessage));
 
-        selectRet = select(pipeFdRead + 1, &readFdSet, NULL, NULL, NULL);
-        if (selectRet < 0) {
-            if (errno == EINTR)
-                break;
-            errno = CERR_SELECT;
-            errPrint();
-            printf("[ERROR] logger select\n");
-            printf("[ERROR] Logger is shutting down by the error!\n");
-            exit(errno);
-        } else if (selectRet == 0) {
-            continue;
-        }
-
-        received = read(pipeFdRead, msg, LOG_MESSAGE_SIZE);
+        received = msgrcv(msQueueFd, &loggerMessage, sizeof(loggerMessage.message), 0, 0);
         if (received < 0) {
-            if (errno == EINTR)
+            if (errno != EINTR)
                 break;
-            errno = CERR_READ;
+            errno = CERR_MSGRCV;
             errPrint();
-            printf("[ERROR] receive\n");
-            printf("[ERROR] Logger is shutting down by the error!\n");
-            exit(error);
+            break;
         }
 
-        printf("%s\n", msg);
+        fprintf(logFile, "client >> %s\n", loggerMessage.message);
+        printf("client >> %s\n", loggerMessage.message);
+
     }
 
-    printf("[INFO] Shutting down, bye-bye\n");
+    fprintf(logFile, "[END] Завершение работы логгера...\n");
+    printf("Logger end\n");
+    fclose(logFile);
+    msgctl(msQueueFd, IPC_RMID, NULL);
     exit(0);
 }

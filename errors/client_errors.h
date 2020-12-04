@@ -14,7 +14,7 @@
 #define CERR_SEND                   5
 #define CERR_MEM_ALLOC              6
 #define CERR_FTOK                   7
-#define CERR_PIPE                   8
+#define CERR_MSGGET                 8
 #define CERR_FORK                   9
 #define CERR_FOPEN                  10
 #define CERR_READ                   11
@@ -26,6 +26,9 @@
 #define CERR_NS_INIT_PARSE          17
 #define CERR_NS_PARSERR             18
 #define CERR_NO_MX_FOUND            19
+#define CERR_MSGSND                 20
+#define CERR_MSGRCV                 21
+
 
 #define errPrint() fprintf(stderr, "File \"%s\" -> %s(), line %d\n", __FILE__, __FUNCTION__, __LINE__)
 
