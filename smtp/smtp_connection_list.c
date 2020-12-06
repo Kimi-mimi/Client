@@ -38,6 +38,67 @@ SMTPConnection *smtpConnectionListGetConnectionWithSocket(SMTPConnectionList *he
     return NULL;
 }
 
+SMTPConnection *smtpConnectionListGetConnectionWithDomain(SMTPConnectionList *head, const String *domain) {
+    for (SMTPConnectionList *cur = head; cur != NULL; cur = cur->next)
+        if (cur->connection && stringEqualsTo(cur->connection->domain, domain))
+            return cur->connection;
+
+    return NULL;
+}
+
+SMTPConnectionList *smtpConnectionListAddMessage(SMTPConnectionList *head, const SMTPMessage *message, int ignoreKimiMimi) {
+    SMTPConnectionList *newHead = head;
+    SMTPConnection *connToAddMessage = NULL;
+    SMTPMessageQueue *newQueueHead = NULL;
+    String **domains = NULL;
+    String kimiMimiDomainString = SERVER_HOST_STRING_INITIALIZER;
+    size_t domainsNumber;
+
+
+    domains = smtpMessageGetRecipientsDomainsDistinct(message, &domainsNumber);
+    if (!domains) {
+        errPrint();
+        return NULL;
+    }
+
+    for (int i = 0; i < domainsNumber; i++) {
+        if (ignoreKimiMimi && stringEqualsTo(domains[i], &kimiMimiDomainString))
+            continue;
+
+        connToAddMessage = smtpConnectionListGetConnectionWithDomain(head, domains[i]);
+        if (!connToAddMessage) {
+            connToAddMessage = smtpConnectionInitEmpty(domains[i]);
+            if (!connToAddMessage) {
+                errPrint();
+                newHead = NULL;
+                break;
+            }
+
+            newHead = smtpConnectionListAddConnectionToList(newHead, connToAddMessage);
+            if (!newHead) {
+                smtpConnectionDeinit(connToAddMessage);
+                errPrint();
+                break;
+            }
+        }
+
+        newQueueHead = smtpMessageQueuePush(connToAddMessage->messageQueue, message);
+        if (!newQueueHead) {
+            errPrint();
+            newHead = NULL;
+            break;
+        }
+        connToAddMessage->messageQueue = newQueueHead;
+        newQueueHead = NULL;
+        connToAddMessage = NULL;
+    }
+
+    for (int i = 0; i < domainsNumber; i++)
+        stringDeinit(domains[i]);
+    freeAndNull(domains);
+    return newHead;
+}
+
 SMTPConnectionList *smtpConnectionListAddConnectionToList(SMTPConnectionList *head, SMTPConnection *conn) {
     SMTPConnectionList *cur = head;
     SMTPConnectionList *new = NULL;
@@ -90,12 +151,11 @@ SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPCo
 }
 
 void smtpConnectionListDeinitList(SMTPConnectionList *head) {
-    SMTPConnectionList *cur = head;
+    SMTPConnectionList *cur;
 
-    while (cur) {
-        head = cur;
-        cur = head->next;
+    while (head) {
+        cur = head;
+        head = head->next;
         deinitSmtpConnectionListNode(cur);
-        cur = NULL;
     }
 }

@@ -21,7 +21,7 @@ typedef struct {
     char message[LOG_MESSAGE_SIZE];
 } LoggerMessage;
 
-int loggerMain();
+pid_t loggerMain();
 
 int logMessage(const char *message, LogMessageType messageType);
 

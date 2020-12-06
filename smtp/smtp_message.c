@@ -34,8 +34,8 @@ SMTPMessage *smtpMessageInit() {
         return NULL;
     }
 
-    self->body = stringInitFromStringBuf("");
-    if (!self->body) {
+    self->data = stringInitFromStringBuf("");
+    if (!self->data) {
         errPrint();
         smtpMessageDeinit(self);
         return NULL;
@@ -43,6 +43,37 @@ SMTPMessage *smtpMessageInit() {
 
     self->recipients = NULL;
     self->recipientsCount = 0;
+    return self;
+}
+
+SMTPMessage *smtpMessageInitCopy(const SMTPMessage *copy) {
+    SMTPMessage *self = NULL;
+
+    if ((self = smtpMessageInit()) == NULL ||
+            stringConcat(self->from, copy->from) < 0 ||
+            stringConcat(self->subject, copy->subject) < 0 ||
+            stringConcat(self->data, copy->data) < 0) {
+        errPrint();
+        smtpMessageDeinit(self);
+        return NULL;
+    }
+
+    self->recipientsCount = copy->recipientsCount;
+    self->recipients = calloc(self->recipientsCount, sizeof(String*));
+    if (!self->recipients) {
+        errPrint();
+        smtpMessageDeinit(self);
+        return NULL;
+    }
+
+    for (int i = 0; i < self->recipientsCount; i++) {
+        if ((self->recipients[i] = stringInitCopy(copy->recipients[i])) == NULL) {
+            errPrint();
+            smtpMessageDeinit(self);
+            return NULL;
+        }
+    }
+
     return self;
 }
 
@@ -68,7 +99,7 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
     }
 
     int bodyStarted = 0;
-    int lineLen = 998;
+    int lineLen = 1024;
     char line[lineLen];
     memset(line, 0, lineLen);
     String *lineString = NULL;
@@ -82,34 +113,22 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
             return NULL;
         }
 
-        if (stringHasPrefix(lineString, &fromPrefix)) {
-            currentPrefix = &fromPrefix;
-        } else if (stringHasPrefix(lineString, &toPrefix)) {
-            currentPrefix = &toPrefix;
-        } else if (stringHasPrefix(lineString, &subjectPrefix)) {
-            currentPrefix = &subjectPrefix;
-        } else if (!bodyStarted &&
-                (stringEqualsTo(lineString, &newlineString) || stringEqualsTo(lineString, &crlfString))) {
-            // Максимальная длинна команды == 510, а длинна строки у нас больше, так что такая проверка безопасна
-            bodyStarted = 1;
-            currentPrefix = NULL;
-            stringDeinit(lineString);
-            lineString = NULL;
-            memset(line, 0, lineLen);
-            continue;
+        if (!bodyStarted) {
+            if (stringHasPrefix(lineString, &fromPrefix)) {
+                currentPrefix = &fromPrefix;
+            } else if (stringHasPrefix(lineString, &toPrefix)) {
+                currentPrefix = &toPrefix;
+            } else if (stringHasPrefix(lineString, &subjectPrefix)) {
+                currentPrefix = &subjectPrefix;
+            } else if (stringEqualsTo(lineString, &newlineString) || stringEqualsTo(lineString, &crlfString)) {
+                // lineLength > 988, так что такая проверка безопасна
+                // https://stackoverflow.com/questions/11794698/max-line-length-in-mail
+                bodyStarted = 1;
+                currentPrefix = NULL;
+            }
         }
 
-        if (!currentPrefix && stringHasSuffix(lineString, &newlineString) != STRING_CHAR_NOT_FOUND) {
-            if (stringReplaceCharactersFromIdxWithLen(lineString,
-                                                      (int) lineString->count - (int) newlineString.count,
-                                                      newlineString.count,
-                                                      &crlfString) < 0) {
-                errPrint();
-                stringDeinit(lineString);
-                smtpMessageDeinit(self);
-                return NULL;
-            }
-        } else {
+        if (!bodyStarted) {
             if (stringStripTrailingSymbols(lineString, CRLF, 2) < 0 ||
                     (slicedLineString = stringSlice(lineString, currentPrefix->count, lineString->count)) == NULL) {
                 errPrint();
@@ -141,18 +160,17 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
             }
             stringDeinit(slicedLineString);
             slicedLineString = NULL;
-        } else {
-            if (stringConcat(self->body, lineString) < 0) {
-                errPrint();
-                stringDeinit(lineString);
-                smtpMessageDeinit(self);
-                return NULL;
-            }
-            stringDeinit(slicedLineString);
-            slicedLineString = NULL;
         }
 
-        freeAndNull(slicedLineString);
+        if (stringConcat(self->data, lineString) < 0) {
+            errPrint();
+            stringDeinit(lineString);
+            smtpMessageDeinit(self);
+            return NULL;
+        }
+
+        stringDeinit(slicedLineString);
+        slicedLineString = NULL;
         stringDeinit(lineString);
         lineString = NULL;
         memset(line, 0, lineLen);
@@ -316,17 +334,17 @@ String *smtpMessageGetAnyHeader(const char* headerName, const String *headerData
     return ans;
 }
 
-String *smtpMessageGetFromDomain(const SMTPMessage *self) {
+String *getDomainFromEmailAddress(const String *emailAddress) {
     int monkeyIdx;
     String *domain = NULL;
 
-    if (!self) {
+    if (!emailAddress) {
         errno = CERR_SELF_UNINITIALIZED;
         errPrint();
         return NULL;
     }
 
-    monkeyIdx = stringFirstIndex(self->from, '@');
+    monkeyIdx = stringFirstIndex(emailAddress, '@');
     if (monkeyIdx == STRING_CHAR_NOT_FOUND)
         errno = CERR_INVALID_ARG;
     if (monkeyIdx < 0) {
@@ -334,13 +352,97 @@ String *smtpMessageGetFromDomain(const SMTPMessage *self) {
         return NULL;
     }
 
-    domain = stringSlice(self->from + 1, monkeyIdx, self->from->count);
+    domain = stringSlice(emailAddress, monkeyIdx + 1, emailAddress->count);
     if (!domain) {
         errPrint();
         return NULL;
     }
 
     return domain;
+}
+
+String *smtpMessageGetFromDomain(const SMTPMessage *self) {
+    if (!self) {
+        errno = CERR_SELF_UNINITIALIZED;
+        errPrint();
+        return NULL;
+    }
+
+    return getDomainFromEmailAddress(self->from);
+}
+
+String **smtpMessageGetRecipientsDomainsDistinct(const SMTPMessage *self, size_t *domainsNum) {
+    String **ans = NULL;
+    String **tmpAns = NULL;
+    String *cur = NULL;
+    *domainsNum = 0;
+
+    if (!self || self->recipientsCount == 0) {
+        errno = CERR_SELF_UNINITIALIZED;
+        errPrint();
+        return NULL;
+    }
+
+    int needContinue = 0;
+    for (int i = 0; i < self->recipientsCount; i++) {
+        cur = getDomainFromEmailAddress(self->recipients[i]);
+        if (!cur) {
+            errPrint();
+            for (int j = 0; j < *domainsNum; j++)
+                stringDeinit(ans[j]);
+            freeAndNull(ans);
+            return NULL;
+        }
+
+        for (int j = 0; j < *domainsNum; j++) {
+            if (stringEqualsTo(cur, ans[j])) {
+                needContinue = 1;
+                break;
+            }
+        }
+        if (needContinue) {
+            needContinue = 0;
+            stringDeinit(cur);
+            cur = NULL;
+            continue;
+        }
+
+        tmpAns = calloc(*domainsNum + 1, sizeof(String*));
+        if (!tmpAns) {
+            errPrint();
+            for (int j = 0; j < *domainsNum; j++)
+                stringDeinit(ans[j]);
+            stringDeinit(cur);
+            freeAndNull(ans);
+            return NULL;
+        }
+
+        memcpy(tmpAns, ans, *domainsNum * sizeof(String*));
+        tmpAns[*domainsNum] = cur;
+        *domainsNum += 1;
+        freeAndNull(ans);
+        ans = tmpAns;
+        tmpAns = NULL;
+        cur = NULL;
+    }
+
+    return ans;
+}
+
+int smtpMessageIsEqualByData(const SMTPMessage *self, const SMTPMessage *another) {
+    if (!self) {
+        errno = CERR_SELF_UNINITIALIZED;
+        errPrint();
+        return -1;
+    }
+
+    if (!another) {
+        errno = CERR_INVALID_ARG;
+        errPrint();
+        return -1;
+    }
+
+    return stringEqualsTo(self->data, another->data);
 }
 
 String *smtpMessageGetFromHeader(const SMTPMessage *self) {
@@ -418,48 +520,11 @@ String *smtpMessageGetSubjectHeader(const SMTPMessage *self) {
     return header;
 }
 
-String *smtpMessageAsDATA(const SMTPMessage *self) {
-    String *ans = NULL;
-    String *fromHeader = NULL;
-    String *toHeader = NULL;
-    String *subjectHeader = NULL;
-    const String crlfString = CRLF_STRING_INITIALIZER;
-
-    if ((ans = stringInit("", 0)) == NULL) {
-        errPrint();
-        return NULL;
-    }
-
-    if ((fromHeader = smtpMessageGetFromHeader(self)) == NULL ||
-            (toHeader = smtpMessageGetToHeader(self)) == NULL ||
-            (subjectHeader = smtpMessageGetSubjectHeader(self)) == NULL ||
-            stringConcat(ans, fromHeader) < 0 ||
-            stringConcat(ans, &crlfString) < 0 ||
-            stringConcat(ans, toHeader) < 0 ||
-            stringConcat(ans, &crlfString) < 0 ||
-            stringConcat(ans, subjectHeader) < 0 ||
-            stringConcat(ans, &crlfString) < 0 ||
-            stringConcat(ans, &crlfString) < 0 ||
-            stringConcat(ans, self->body) < 0) {
-        errPrint();
-        stringDeinit(fromHeader);
-        stringDeinit(toHeader);
-        stringDeinit(subjectHeader);
-        stringDeinit(ans);
-        return NULL;
-    }
-
-    stringDeinit(fromHeader);
-    stringDeinit(toHeader);
-    stringDeinit(subjectHeader);
-    return ans;
-}
-
 void smtpMessageDeinit(SMTPMessage *self) {
     if (!self)
         return;
 
-    freeAndNull(self->body);
+    freeAndNull(self->data);
     freeAndNull(self->subject);
     freeAndNull(self->from);
     for (int i = 0; i > self->recipientsCount; i++) {

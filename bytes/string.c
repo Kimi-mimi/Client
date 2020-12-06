@@ -309,7 +309,7 @@ int stringUppercaseLatin(String *self) {
     return 0;
 }
 
-String *stringSlice(String *self, int from, int to) {
+String *stringSlice(const String *self, int from, int to) {
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;
         errPrint();

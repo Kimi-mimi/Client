@@ -43,7 +43,7 @@ int stringAddSubstringAtIdx(String *self, int idx, const String *substring);
 int stringLowercaseLatin(String *self);
 int stringUppercaseLatin(String *self);
 
-String *stringSlice(String *self, int from, int to);
+String *stringSlice(const String *self, int from, int to);
 
 int stringEqualsTo(const String *self, const String *another);
 

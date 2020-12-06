@@ -5,7 +5,7 @@ type   = stepping;
 
 prefix = fsm;
 
-cookie = "SMTPConnectionList *head, SMTPConnection *connection";
+cookie = "/* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection";
 
 state  = closed, connecting, connected, ready,
     sending_helo,
@@ -28,6 +28,8 @@ event  = establish_connection, connection_established, connection_refused, conne
     send_message,
     send_quit;
 
+transition =
+{ tst = '*';                    tev = internal_error;           next = closed;                  ttype = internal_error; };
 
 transition =
 { tst = closed;                 tev = establish_connection;     next = connecting;              ttype = establish_connection; };
@@ -70,7 +72,7 @@ transition =
 
 transition =
 { tst = sending_rcpt_to;        tev = good_response;            next = need_to_rcpt_or_data;    ttype = log_good_rcpt_to_and_decide_rcpt_or_data; },
-{ tst = sending_rcpt_to;        tev = bad_response;             next = sending_rset;            ttype = log_bad_rcpt_to_and_rset; },
+{ tst = sending_rcpt_to;        tev = bad_response;             next = need_to_rcpt_or_data;    ttype = log_bad_rcpt_to_and_decide_rcpt_or_data; },
 { tst = sending_rcpt_to;        tev = unreadable_response;      next = sending_rset;            ttype = log_unreadable_rcpt_to_and_rset; };
 
 transition =

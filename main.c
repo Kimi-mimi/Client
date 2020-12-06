@@ -25,56 +25,46 @@ int main(void) {
 //    stringDeinit(ipString);
 //    stringDeinit(yaRuDomain);
 
-    int pid = 0;
-    int loggerExitStatus = 0;
-    pid = loggerMain();
-    printf("logger pid = [%d]\n", pid);
 
-    logMessage("Hello, logger!", info);
-    sleep(1);
+SMTPMessage *msg = NULL;
+msg = smtpMessageInitFromFile("../mails/1.txt");
+if (!msg) {
+    errPrint();
+    onError();
+}
 
-    kill(pid, SIGINT);
-    waitpid(pid, &loggerExitStatus, 0);
-    if (WIFEXITED(loggerExitStatus)) {
-        printf("Logger exited with status: %d\n", WEXITSTATUS(loggerExitStatus));
-    }
+printf("From: %s\n", msg->from->buf);
+for (int i = 0; i < msg->recipientsCount; i++) {
+    printf("To: %s\n", msg->recipients[i]->buf);
+}
+printf("Subject: %s\n", msg->subject->buf);
+printf("\n");
+printf("data: %s", msg->data->buf);
 
-    if (WIFSIGNALED(loggerExitStatus)) {
-        printf("Logger exited by unhandled signal %d\n", WTERMSIG(loggerExitStatus));
-    }
+smtpMessageDeinit(msg);
+return 0;
 
-    printf("main over\n");
-    return 0;
-
-
-//    int pipeFd[2];                          // Дескриптор пайпов [0] -- read, [1] -- write
-//    int loggerPid;                          // PID логгера
-//    int clientRet;                          // Код возврата из main-функции клиента
+/*
+ * LOGGER
+ */
+//    pid_t pid = 0;
+//    int loggerExitStatus = 0;
+//    pid = loggerMain();
+//    printf("Logger pid = %d\n", pid);
 //
-//    if (pipe(pipeFd) < 0) {
-//        errno = CERR_PIPE;
-//        errPrint();
-//        onError();
+//    logMessage("Hello, logger!", info);
+//    sleep(1);
+//
+//    kill(pid, SIGINT);
+//    waitpid(pid, &loggerExitStatus, 0);
+//    if (WIFEXITED(loggerExitStatus)) {
+//        printf("Логгер вышел со статусом: %d\n", WEXITSTATUS(loggerExitStatus));
 //    }
 //
-//    loggerPid = loggerMain(pipeFd[0], pipeFd[1]);
-//    if (loggerPid < 0) {
-//        errPrint();
-//        onError();
-//    }
-//    printf("Logger pid: %d\n", loggerPid);
-//
-//    clientRet = clientMain();
-//    if (clientRet < 0) {
-//        errPrint();
-//        kill(loggerPid, SIGINT);
-//        onError();
+//    if (WIFSIGNALED(loggerExitStatus)) {
+//        printf("Логгер вышел по необработанному сигналу [%d]\n", WTERMSIG(loggerExitStatus));
 //    }
 //
-//    kill(loggerPid, SIGINT);
-//    wait(NULL);
-//    close(pipeFd[0]);
-//    close(pipeFd[1]);
-//    printf("Bye-bye!\n");
+//    printf("Клиент все\n");
 //    return 0;
 }

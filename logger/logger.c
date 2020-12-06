@@ -79,7 +79,12 @@ static void intHandler(int _) {
     quit = 1;
 }
 
-int loggerMain() {
+static inline void log(FILE *file, const char *message) {
+    printf("%s\n", message);
+    fprintf(file, "%s\n", message);
+}
+
+pid_t loggerMain() {
     int pid;                            // PID процесса-логгера
     ssize_t received;                   // Размер считанного сообщения из msgrcv
     LoggerMessage loggerMessage;        // Сообщение логгера
@@ -112,8 +117,7 @@ int loggerMain() {
         onError();
     }
 
-    printf("[BEGIN] Очередь сообщений создана\n");
-    fprintf(logFile, "[BEGIN] Очередь сообщений создана\n");
+    log(logFile, "[BEGIN] Очередь сообщений создана");
     messageSize = sizeof(loggerMessage.message);
     while (!quit) {
         memset(&loggerMessage, 0, sizeof(loggerMessage));
@@ -129,14 +133,11 @@ int loggerMain() {
             quit = 1;
         }
 
-        if (received > 0) {
-            printf("%s\n", loggerMessage.message);
-            fprintf(logFile, "%s\n", loggerMessage.message);
-        }
+        if (received > 0)
+            log(logFile, loggerMessage.message);
     }
 
-    printf("[END] Завершение работы логгера...\n");
-    fprintf(logFile, "[END] Завершение работы логгера...\n");
+    log(logFile, "[END] Завершение работы логгера...");
     fclose(logFile);
     msgctl(msQueueFd, IPC_RMID, NULL);
     exit(errno);

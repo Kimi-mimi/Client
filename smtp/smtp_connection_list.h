@@ -7,14 +7,18 @@
 
 #include "smtp_connection.h"
 
-typedef struct _SMTPConnectionList {
+typedef struct smtp_connection_list_s {
     SMTPConnection *connection;
-    struct _SMTPConnectionList *next;
+    struct smtp_connection_list_s *next;
 } SMTPConnectionList;
 
 SMTPConnectionList *smtpConnectionListInitEmptyNode();
 
 SMTPConnection *smtpConnectionListGetConnectionWithSocket(SMTPConnectionList *head, int socket);
+SMTPConnection *smtpConnectionListGetConnectionWithDomain(SMTPConnectionList *head, const String *domain);
+
+SMTPConnectionList *smtpConnectionListAddMessage(SMTPConnectionList *head, const SMTPMessage *message, int ignoreKimiMimi);
+
 SMTPConnectionList *smtpConnectionListAddConnectionToList(SMTPConnectionList *head, SMTPConnection *conn);
 SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPConnectionList *head, int socket);
 
