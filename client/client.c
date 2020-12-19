@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
@@ -17,6 +18,7 @@ ssize_t readFromFd(SMTPConnection *connection) {
     char buf[READ_LENGTH];
     String *ans = NULL;
 
+    memset(buf, 0, sizeof (buf));
     recvLength = recv(connection->socket, buf, READ_LENGTH, 0);
     if (recvLength <= 0) {
         errno = CERR_RECV;
@@ -61,6 +63,24 @@ ssize_t sendThroughSocket(SMTPConnection *connection, int flags) {
     return sentBytes;
 }
 
+int parseResponseCode(const String *responseString) {
+    int ans;
+    char strCode[3];
+
+    if (!responseString || responseString->count < 3) {
+        errno = CERR_INVALID_ARG;
+        errPrint();
+        return -1;
+    }
+
+    strCode[0] = responseString->buf[0];
+    strCode[1] = responseString->buf[1];
+    strCode[2] = responseString->buf[2];
+    ans = atoi(strCode);
+
+    return ans;
+}
+
 // ****************************************************************************************************************** //
 
 static volatile int closeProgram = 0;       // Флаг мягкого закрытия программы
@@ -70,7 +90,8 @@ static void intHandler(int signal) {
 }
 
 int clientMain() {
-    fd_set activeFdSet, readFdSet, writeFdSet;          // Множеста дескрипторов для select
+    fd_set activeReadFdSet, activeWriteFdSet;           // Главные множества дескрипторов для select
+    fd_set readFdSet, writeFdSet;                       // Множеста дескрипторов для select
     SMTPConnection *currentConnection = NULL;           // Обрабатываемое подключение
     SMTPConnectionList *connectionListHead = NULL;      // Список подключений
     SMTPConnectionList *tmpConnectionListHead = NULL;   // Временный список подключений
@@ -79,11 +100,13 @@ int clientMain() {
     ssize_t recvLength = 0;                             // Длинна строки, прочитанной из сокета
     String *outputString = NULL;                        // Строка для вывода на экран (логгер)
     int exception = 0;                                  // Переменная для хранения ошибки
+    int responseCode = -1;                              // Код ответа сервера
 
     signal(SIGINT, intHandler);
     signal(SIGTERM, intHandler);
 
-    FD_ZERO(&activeFdSet);
+    FD_ZERO(&activeReadFdSet);
+    FD_ZERO(&activeWriteFdSet);
     FD_ZERO(&readFdSet);
     FD_ZERO(&writeFdSet);
 
@@ -101,11 +124,6 @@ int clientMain() {
                 }
 
                 connectionListHead = tmpConnectionListHead;
-                FD_ZERO(&activeFdSet);
-                while (tmpConnectionListHead) {
-                    FD_SET(tmpConnectionListHead->connection->socket, &activeFdSet);
-                    tmpConnectionListHead = tmpConnectionListHead->next;
-                }
                 tmpConnectionListHead = NULL;
             }
 
@@ -113,10 +131,18 @@ int clientMain() {
                 smtpMessageDeinit(messagesFromDir[i]);
             messagesFromDirLen = 0;
             freeAndNull(messagesFromDir);
+
+            FD_ZERO(&activeReadFdSet);
+            tmpConnectionListHead = connectionListHead;
+            while (tmpConnectionListHead) {
+                FD_SET(tmpConnectionListHead->connection->socket, &activeReadFdSet);
+                tmpConnectionListHead = tmpConnectionListHead->next;
+            }
+            tmpConnectionListHead = NULL;
         }
 
-        readFdSet = activeFdSet;
-        writeFdSet = activeFdSet;
+        readFdSet = activeReadFdSet;
+        writeFdSet = activeWriteFdSet;
 
         if (select(FD_SETSIZE, &readFdSet, &writeFdSet, NULL, NULL) < 0) {
             if (errno == EINTR) {
@@ -142,43 +168,60 @@ int clientMain() {
                 recvLength = readFromFd(currentConnection);
                 if (recvLength < 0) {
                     errPrint();
-                    FD_CLR(currentConnection->socket, &activeFdSet);
-                    connectionListHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(
-                            connectionListHead, currentConnection->socket);
+                    fsm_step(currentConnection->connState, FSM_EV_INTERNAL_ERROR,
+                             (void**) &connectionListHead, currentConnection,NULL,
+                             &activeReadFdSet, &activeWriteFdSet);
                     continue;
                 } else if (recvLength == 0) {
-                    printf("Соединение с сокетом %d закрывается\n", currentConnection->socket);
-                    FD_CLR(currentConnection->socket, &activeFdSet);
-                    connectionListHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(
-                            connectionListHead, currentConnection->socket);
+                    fsm_step(currentConnection->connState, FSM_EV_CONNECTION_CLOSED_BY_REMOTE,
+                             (void**) &connectionListHead, currentConnection, NULL,
+                             &activeReadFdSet, &activeWriteFdSet);
                     continue;
                 }
 
                 outputString = smtpConnectionGetLatestMessageFromReadBuf(currentConnection, &exception);
                 if (exception) {
                     errPrint();
-                    FD_CLR(currentConnection->socket, &activeFdSet);
-                    connectionListHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(
-                            connectionListHead, currentConnection->socket);
+                    fsm_step(currentConnection->connState, FSM_EV_INTERNAL_ERROR,
+                             (void**) &connectionListHead, currentConnection, NULL,
+                             &activeReadFdSet, &activeWriteFdSet);
                     exception = 0;
                     continue;
                 }
 
                 if (outputString) {
-                    printf("<< \"%s\"\n", outputString->buf);
+                    responseCode = parseResponseCode(outputString);
+                    if (responseCode < 200 || responseCode > 600) {
+                        fsm_step(currentConnection->connState, FSM_EV_UNREADABLE_RESPONSE,
+                                 (void**) &connectionListHead, currentConnection, outputString,
+                                 &activeReadFdSet, &activeWriteFdSet);
+                    } else if (responseCode >= 200 && responseCode < 400) {
+                        fsm_step(currentConnection->connState, FSM_EV_GOOD_RESPONSE,
+                                 (void**) &connectionListHead, currentConnection, outputString,
+                                 &activeReadFdSet, &activeWriteFdSet);
+                    } else {
+                        fsm_step(currentConnection->connState, FSM_EV_BAD_RESPONSE,
+                                 (void**) &connectionListHead, currentConnection, outputString,
+                                 &activeReadFdSet, &activeWriteFdSet);
+                    }
+
                     stringDeinit(outputString);
                     outputString = NULL;
                 }
             }
 
-            if (FD_ISSET(i, &writeFdSet) && smtpConnectionIsNeedToWrite(currentConnection)) {
-                if (sendThroughSocket(currentConnection, 0) < 0) {
+            if (FD_ISSET(i, &writeFdSet)) {
+                if (smtpConnectionIsNeedToWrite(currentConnection) && sendThroughSocket(currentConnection, 0) < 0) {
                     errPrint();
-                    FD_CLR(currentConnection->socket, &activeFdSet);
-                    connectionListHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(
-                            connectionListHead, currentConnection->socket);
+                    fsm_step(currentConnection->connState, FSM_EV_INTERNAL_ERROR,
+                             (void**) &connectionListHead, currentConnection, NULL,
+                             &activeReadFdSet, &activeWriteFdSet);
                     continue;
                 }
+
+                fsm_step(currentConnection->connState, FSM_EV_SEND_BYTES,
+                         (void**) &connectionListHead, currentConnection, NULL,
+                         &activeReadFdSet, &activeWriteFdSet);
             }
         }
     }

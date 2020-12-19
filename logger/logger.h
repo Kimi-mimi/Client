@@ -21,8 +21,21 @@ typedef struct {
     char message[LOG_MESSAGE_SIZE];
 } LoggerMessage;
 
-pid_t loggerMain();
+pid_t loggerMain(void);
 
 int logMessage(const char *message, LogMessageType messageType);
+
+int logChangeState(int fd, const String *domain, int oldState, const char* oldStateName, int newState, const char* newStateName);
+
+int logGoodResponse(int fd, const String *domain, const String *response, const char *command);
+int logBadResponse(int fd, const String *domain, const String *response, const char *command);
+int logUnreadableResponse(int fd, const String *domain, const String *response, const char *command);
+
+int logClosedByRemote(int fd, const String *domain);
+int logInternalError(int fd, const String *domain);
+int logInvalidTransition(int fd, const String *domain);
+
+int logSendingCommand(int fd, const String *domain, const char *command);
+int logDecidedTo(int fd, const String *domain, const char *command);
 
 #endif //CLIENT_LOGGER_H

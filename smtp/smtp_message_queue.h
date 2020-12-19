@@ -19,6 +19,8 @@ SMTPMessageQueue *smtpMessageQueueInit(const SMTPMessage *message);
 SMTPMessageQueue *smtpMessageQueuePush(SMTPMessageQueue *head, const SMTPMessage *message);
 SMTPMessageQueue *smtpMessageQueuePop(SMTPMessageQueue *head, SMTPMessage **message);
 
+size_t smtpMessageQueueCount(SMTPMessageQueue *head);
+
 void smtpMessageQueueDeinitNode(SMTPMessageQueue *node);
 void smtpMessageQueueDeinitQueue(SMTPMessageQueue *head);
 

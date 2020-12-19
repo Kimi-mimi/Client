@@ -14,7 +14,7 @@ void printError(const char *message) {
     }
 }
 
-void onError() {
+void errorPrint() {
     switch (errno) {
         case CERR_SOCKET:
             printError("socket");
@@ -77,5 +77,9 @@ void onError() {
             printError("Unknown");
             break;
     }
+}
+
+void onError() {
+    errorPrint();
     exit(errno);
 }

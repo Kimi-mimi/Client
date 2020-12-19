@@ -15,6 +15,61 @@
 
 static int msQueueFd;                               // Дескриптор очереди сообщений
 
+int logResponseForFdAndDomain(int fd, const String *domain, const String *response, const char *command, LogMessageType messageType) {
+    char msg[LOG_MESSAGE_SIZE];
+    sprintf(msg, "Response on %s for fd [%d](%s): '%s'", command, fd, domain->buf, response->buf);
+    return logMessage(msg, messageType);
+}
+
+int logGoodResponse(int fd, const String *domain, const String *response, const char *command) {
+    return logResponseForFdAndDomain(fd, domain, response, command, info);
+}
+
+int logBadResponse(int fd, const String *domain, const String *response, const char *command) {
+    return logResponseForFdAndDomain(fd, domain, response, command, warning);
+}
+
+int logUnreadableResponse(int fd, const String *domain, const String *response, const char *command) {
+    return logResponseForFdAndDomain(fd, domain, response, command, error);
+}
+
+int logClosedByRemote(int fd, const String *domain) {
+    char msg[LOG_MESSAGE_SIZE];
+    sprintf(msg, "Remote [%d](%s) closed connection", fd, domain->buf);
+    return logMessage(msg, info);
+}
+
+int logInternalError(int fd, const String *domain) {
+    char msg[LOG_MESSAGE_SIZE];
+    sprintf(msg, "Internal error occurred on [%d](%s)", fd, domain->buf);
+    return logMessage(msg, info);
+}
+
+int logInvalidTransition(int fd, const String *domain) {
+    char msg[LOG_MESSAGE_SIZE];
+    sprintf(msg, "Invalid transition on [%d](%s)", fd, domain->buf);
+    return logMessage(msg, info);
+}
+
+int logSendingCommand(int fd, const String *domain, const char *command) {
+    char msg[LOG_MESSAGE_SIZE];
+    sprintf(msg, "Sending %s for fd [%d](%s)", command, fd, domain->buf);
+    return logMessage(msg, info);
+}
+
+int logDecidedTo(int fd, const String *domain, const char *command) {
+    char msg[LOG_MESSAGE_SIZE];
+    sprintf(msg, "Decided to %s for fd [%d](%s)", command, fd, domain->buf);
+    return logMessage(msg, info);
+}
+
+int logChangeState(int fd, const String *domain, int oldState, const char* oldStateName, int newState, const char* newStateName) {
+    char msg[LOG_MESSAGE_SIZE];
+    sprintf(msg, "Connection [%d](%s) changed state %d (%s) -> %d (%s)", fd, domain->buf,
+            oldState,  oldStateName, newState, newStateName);
+    return logMessage(msg, info);
+}
+
 int logMessage(const char* message, LogMessageType messageType) {
     String *messageString;                          // Строка сообщения
     String *prefixString;                           // Строка префикса
@@ -54,6 +109,9 @@ int logMessage(const char* message, LogMessageType messageType) {
         return -1;
     }
 
+    printf("Logger: %s\n", prefixString->buf);
+    return 0;
+
     messageLen = prefixString->count > LOG_MESSAGE_SIZE - 1 ? LOG_MESSAGE_SIZE - 1 : prefixString->count;
     loggerMessage.msg_type = 1;
     memset(loggerMessage.message, 0, sizeof(loggerMessage.message));
@@ -84,7 +142,8 @@ static inline void log(FILE *file, const char *message) {
     fprintf(file, "%s\n", message);
 }
 
-pid_t loggerMain() {
+pid_t loggerMain(void) {
+    return 0;
     int pid;                            // PID процесса-логгера
     ssize_t received;                   // Размер считанного сообщения из msgrcv
     LoggerMessage loggerMessage;        // Сообщение логгера

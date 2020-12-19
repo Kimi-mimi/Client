@@ -11,6 +11,7 @@
 #include "../errors/client_errors.h"
 #include "../bytes/string.h"
 #include "../bytes/bytes.h"
+#include "smtp_command.h"
 #include "smtp_message.h"
 #include "smtp_connection.h"
 
@@ -79,6 +80,14 @@ static String *getRecordForHost(const String *host, int type) {
 }
 
 String *getIpByHost(const String *host, int *port) {
+    String *local = stringInitFromStringBuf("127.0.0.1");
+    if (!local) {
+        errPrint();
+        return NULL;
+    }
+    *port = 25;
+    return local;
+
     const String kimiMimiHostNameString = SERVER_HOST_STRING_INITIALIZER;
     String *mxString = NULL;
     String *ipString = NULL;
@@ -112,31 +121,6 @@ String *getIpByHost(const String *host, int *port) {
     return ipString;
 }
 
-int initAndConnectSocket(const char* serverHost, int serverPort) {
-    int sock;                               // Дескриптор сокета
-    struct sockaddr_in serverAddress;       // Адрес сокета
-
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        errPrint();
-        errno = CERR_SOCKET;
-        return -1;
-    }
-
-    serverAddress.sin_family = AF_INET;
-    inet_pton(AF_INET, serverHost, &serverAddress.sin_addr);
-    serverAddress.sin_port = htons(serverPort);
-
-    if (connect(sock, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0) {
-        close(sock);
-        errPrint();
-        errno = CERR_CONNECT;
-        return -1;
-    }
-
-    return sock;
-}
-
 SMTPConnection *smtpConnectionInitEmpty(const String *domain) {
     SMTPConnection *new = NULL;
     String *output = NULL;
@@ -152,14 +136,6 @@ SMTPConnection *smtpConnectionInitEmpty(const String *domain) {
         return NULL;
     }
 
-    socket = initAndConnectSocket(hostIpString->buf, port);
-    if (socket < 0) {
-        errPrint();
-        stringDeinit(hostIpString);
-        return NULL;
-    }
-    stringDeinit(hostIpString);
-
     if ((new = calloc(1, sizeof(SMTPConnection))) == NULL ||
             (output = stringInit("", 0)) == NULL ||
             (input = stringInit("", 0)) == NULL) {
@@ -168,6 +144,15 @@ SMTPConnection *smtpConnectionInitEmpty(const String *domain) {
         stringDeinit(input);
         stringDeinit(output);
         smtpConnectionDeinit(new);
+        return NULL;
+    }
+
+    new->host = hostIpString;
+    new->port = port;
+    socket = smtpConnectionReconnect(new, 0);
+    if (socket < 0) {
+        errPrint();
+        stringDeinit(hostIpString);
         return NULL;
     }
 
@@ -185,8 +170,43 @@ SMTPConnection *smtpConnectionInitEmpty(const String *domain) {
     new->domain = newDomain;
     new->readBuffer = input;
     new->writeBuffer = output;
-    new->connState = FSM_ST_CLOSED;
+    new->sentRcptTos = 0;
+    new->connState = FSM_ST_CONNECTING;
     return new;
+}
+
+int smtpConnectionReconnect(SMTPConnection *self, int needClose) {
+    int sock;
+    struct sockaddr_in serverAddress;
+
+    if (!self) {
+        errPrint();
+        errno = CERR_SELF_UNINITIALIZED;
+        return -1;
+    }
+
+    if (needClose)
+        close(self->socket);
+
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        errPrint();
+        errno = CERR_SOCKET;
+        return -1;
+    }
+
+    serverAddress.sin_family = AF_INET;
+    inet_pton(AF_INET, self->host->buf, &serverAddress.sin_addr);
+    serverAddress.sin_port = htons(self->port);
+
+    if (connect(sock, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0) {
+        close(sock);
+        errPrint();
+        errno = CERR_CONNECT;
+        return -1;
+    }
+
+    return sock;
 }
 
 int smtpConnectionIsNeedToWrite(const SMTPConnection *self) {
@@ -264,13 +284,13 @@ String *smtpConnectionGetLatestMessageFromReadBuf(SMTPConnection *self, int *exc
         return NULL;
     }
 
-    if ((message = stringSlice(self->writeBuffer, 0, bufContainsCrlf)) == NULL) {
+    if ((message = stringSlice(self->readBuffer, 0, bufContainsCrlf)) == NULL) {
         errPrint();
         *exception = 1;
         return NULL;
     }
 
-    if (stringReplaceCharactersFromIdxWithLen(self->writeBuffer,
+    if (stringReplaceCharactersFromIdxWithLen(self->readBuffer,
                                               0,
                                               bufContainsCrlf + crlfString.count,
                                               &emptyString) < 0) {
@@ -287,6 +307,7 @@ void smtpConnectionDeinit(SMTPConnection *self) {
     if (!self)
         return;
 
+    stringDeinit(self->host);
     stringDeinit(self->domain);
     stringDeinit(self->writeBuffer);
     stringDeinit(self->readBuffer);

@@ -12,6 +12,7 @@
 
 ssize_t readFromFd(SMTPConnection *connection);
 ssize_t sendThroughSocket(SMTPConnection *connection, int flags);
+int parseResponseCode(const String *responseString);
 
 int clientMain();
 

@@ -43,6 +43,14 @@
  *  comments, or it will be removed the next time it is generated.
  */
 /* START === USER HEADERS === DO NOT CHANGE THIS COMMENT */
+#include <sys/select.h>
+#include "../smtp/smtp_connection_list.h"
+#include "../smtp/smtp_connection.h"
+#include "../smtp/smtp_command.h"
+#include "../bytes/string.h"
+#include "../logger/logger.h"
+#include "../errors/client_errors.h"
+#include "fsm-common.h"
 /* END   === USER HEADERS === DO NOT CHANGE THIS COMMENT */
 
 #ifndef NULL
@@ -54,42 +62,50 @@
  *  should be the value of the "maybe_next" argument.
  */
 typedef te_fsm_state (fsm_callback_t)(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt );
 
 static fsm_callback_t
-    fsm_do_connection_established,
-    fsm_do_connection_refused,
-    fsm_do_establish_connection,
+    fsm_do_closed_by_remote,
+    fsm_do_connect_bad,
+    fsm_do_connect_success,
+    fsm_do_connect_unreadable,
+    fsm_do_data_bad,
+    fsm_do_data_success,
+    fsm_do_data_unreadable,
+    fsm_do_decided_to_data,
+    fsm_do_decided_to_mail_from,
+    fsm_do_decided_to_quit,
+    fsm_do_decided_to_rcpt,
+    fsm_do_helo_bad,
+    fsm_do_helo_success_decide_mail_from_or_quit,
+    fsm_do_helo_unreadable,
+    fsm_do_internal_error_decide_to_reconnect_or_close,
     fsm_do_invalid,
-    fsm_do_log_bad_data_and_rset,
-    fsm_do_log_bad_ehlo_and_close,
-    fsm_do_log_bad_helo_and_close,
-    fsm_do_log_bad_mail_from_and_ready,
-    fsm_do_log_bad_message_and_rset,
-    fsm_do_log_bad_quit_and_close,
-    fsm_do_log_bad_rcpt_to_and_decide_rcpt_or_data,
-    fsm_do_log_good_data_and_message,
-    fsm_do_log_good_ehlo_and_ready,
-    fsm_do_log_good_helo_and_ready,
-    fsm_do_log_good_mail_from_and_send_rcpt_to,
-    fsm_do_log_good_message_and_message,
-    fsm_do_log_good_message_and_ready,
-    fsm_do_log_good_quit_and_close,
-    fsm_do_log_good_rcpt_to_and_decide_rcpt_or_data,
-    fsm_do_log_unreadable_data_and_rset,
-    fsm_do_log_unreadable_ehlo_and_close,
-    fsm_do_log_unreadable_helo_and_close,
-    fsm_do_log_unreadable_mail_from_and_ready,
-    fsm_do_log_unreadable_message_and_rset,
-    fsm_do_log_unreadable_quit_and_close,
-    fsm_do_log_unreadable_rcpt_to_and_rset,
-    fsm_do_messages_not_found_and_quit,
-    fsm_do_send_ehlo,
-    fsm_do_send_helo,
-    fsm_do_send_mail_from;
+    fsm_do_log_decided_to_close,
+    fsm_do_log_decided_to_reconnect,
+    fsm_do_mail_from_bad_decide_mail_from_or_quit,
+    fsm_do_mail_from_success_decide_rcpt_to_or_data,
+    fsm_do_mail_from_unreadable_decide_mail_from_or_quit,
+    fsm_do_message_bad_decide_to_mail_from_or_quit,
+    fsm_do_message_success_decide_to_mail_from_or_quit,
+    fsm_do_message_unreadable_decide_to_mail_from_or_quit,
+    fsm_do_quit_bad,
+    fsm_do_quit_success,
+    fsm_do_quit_unreadable,
+    fsm_do_rcpt_to_bad_decide_rcpt_to_or_data,
+    fsm_do_rcpt_to_success_decide_rcpt_to_or_data,
+    fsm_do_rcpt_to_unreadable,
+    fsm_do_rset_bad_decide_to_reconnect_or_close,
+    fsm_do_rset_success_decide_to_mail_to_or_quit,
+    fsm_do_rset_unreadable_decide_to_reconnect_or_close,
+    fsm_do_send_bytes;
 
 /**
  *  Declare all the state transition handling routines.
@@ -109,244 +125,215 @@ static const t_fsm_transition
 fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
 
   /* STATE 0:  FSM_ST_INIT */
-  { { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  GOOD_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  BAD_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_HELO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_EHLO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
   },
 
-  /* STATE 1:  FSM_ST_CLOSED */
-  { { FSM_ST_CONNECTING, fsm_do_establish_connection }, /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  /* STATE 1:  FSM_ST_CLOSING */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  GOOD_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  BAD_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_HELO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_EHLO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
   },
 
-  /* STATE 2:  FSM_ST_CONNECTING */
-  { { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_CONNECTED, fsm_do_connection_established }, /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_CLOSED, fsm_do_connection_refused },   /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  /* STATE 2:  FSM_ST_CLOSED */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  GOOD_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  BAD_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_HELO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_EHLO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
   },
 
-  /* STATE 3:  FSM_ST_CONNECTED */
-  { { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  /* STATE 3:  FSM_ST_CONNECTING */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
+    { FSM_ST_SENDING_HELO, fsm_do_connect_success }, /* EVT:  GOOD_RESPONSE */
+    { FSM_ST_CLOSED, fsm_do_connect_bad },          /* EVT:  BAD_RESPONSE */
+    { FSM_ST_CLOSED, fsm_do_connect_unreadable },   /* EVT:  UNREADABLE_RESPONSE */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
+  },
+
+  /* STATE 4:  FSM_ST_SENDING_HELO */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_SENDING_HELO, fsm_do_send_bytes },     /* EVT:  SEND_BYTES */
+    { FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT, fsm_do_helo_success_decide_mail_from_or_quit }, /* EVT:  GOOD_RESPONSE */
+    { FSM_ST_CLOSED, fsm_do_helo_bad },             /* EVT:  BAD_RESPONSE */
+    { FSM_ST_CLOSED, fsm_do_helo_unreadable },      /* EVT:  UNREADABLE_RESPONSE */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
+  },
+
+  /* STATE 5:  FSM_ST_SENDING_MAIL_FROM */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_SENDING_MAIL_FROM, fsm_do_send_bytes }, /* EVT:  SEND_BYTES */
+    { FSM_ST_NEED_TO_RCPT_TO_OR_DATA, fsm_do_mail_from_success_decide_rcpt_to_or_data }, /* EVT:  GOOD_RESPONSE */
+    { FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT, fsm_do_mail_from_bad_decide_mail_from_or_quit }, /* EVT:  BAD_RESPONSE */
+    { FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT, fsm_do_mail_from_unreadable_decide_mail_from_or_quit }, /* EVT:  UNREADABLE_RESPONSE */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
+  },
+
+  /* STATE 6:  FSM_ST_SENDING_RCPT_TO */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_SENDING_RCPT_TO, fsm_do_send_bytes },  /* EVT:  SEND_BYTES */
+    { FSM_ST_NEED_TO_RCPT_TO_OR_DATA, fsm_do_rcpt_to_success_decide_rcpt_to_or_data }, /* EVT:  GOOD_RESPONSE */
+    { FSM_ST_NEED_TO_RCPT_TO_OR_DATA, fsm_do_rcpt_to_bad_decide_rcpt_to_or_data }, /* EVT:  BAD_RESPONSE */
+    { FSM_ST_SENDING_RSET, fsm_do_rcpt_to_unreadable }, /* EVT:  UNREADABLE_RESPONSE */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
+  },
+
+  /* STATE 7:  FSM_ST_SENDING_DATA */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_SENDING_DATA, fsm_do_send_bytes },     /* EVT:  SEND_BYTES */
+    { FSM_ST_SENDING_MESSAGE, fsm_do_data_success }, /* EVT:  GOOD_RESPONSE */
+    { FSM_ST_SENDING_RSET, fsm_do_data_bad },       /* EVT:  BAD_RESPONSE */
+    { FSM_ST_SENDING_RSET, fsm_do_data_unreadable }, /* EVT:  UNREADABLE_RESPONSE */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
+  },
+
+  /* STATE 8:  FSM_ST_SENDING_MESSAGE */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_SENDING_MESSAGE, fsm_do_send_bytes },  /* EVT:  SEND_BYTES */
+    { FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT, fsm_do_message_success_decide_to_mail_from_or_quit }, /* EVT:  GOOD_RESPONSE */
+    { FSM_ST_SENDING_RSET, fsm_do_message_bad_decide_to_mail_from_or_quit }, /* EVT:  BAD_RESPONSE */
+    { FSM_ST_SENDING_RSET, fsm_do_message_unreadable_decide_to_mail_from_or_quit }, /* EVT:  UNREADABLE_RESPONSE */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
+  },
+
+  /* STATE 9:  FSM_ST_SENDING_RSET */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_SENDING_RSET, fsm_do_send_bytes },     /* EVT:  SEND_BYTES */
+    { FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT, fsm_do_rset_success_decide_to_mail_to_or_quit }, /* EVT:  GOOD_RESPONSE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_rset_bad_decide_to_reconnect_or_close }, /* EVT:  BAD_RESPONSE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_rset_unreadable_decide_to_reconnect_or_close }, /* EVT:  UNREADABLE_RESPONSE */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
+  },
+
+  /* STATE 10:  FSM_ST_SENDING_QUIT */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_SENDING_QUIT, fsm_do_send_bytes },     /* EVT:  SEND_BYTES */
+    { FSM_ST_CLOSED, fsm_do_quit_success },         /* EVT:  GOOD_RESPONSE */
+    { FSM_ST_CLOSED, fsm_do_quit_bad },             /* EVT:  BAD_RESPONSE */
+    { FSM_ST_CLOSED, fsm_do_quit_unreadable },      /* EVT:  UNREADABLE_RESPONSE */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
+  },
+
+  /* STATE 11:  FSM_ST_NEED_TO_RCPT_TO_OR_DATA */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  GOOD_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  BAD_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_SENDING_HELO, fsm_do_send_helo },      /* EVT:  SEND_HELO */
-    { FSM_ST_SENDING_EHLO, fsm_do_send_ehlo },      /* EVT:  SEND_EHLO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
+    { FSM_ST_SENDING_RCPT_TO, fsm_do_decided_to_rcpt }, /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_SENDING_DATA, fsm_do_decided_to_data }, /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
   },
 
-  /* STATE 4:  FSM_ST_READY */
-  { { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  /* STATE 12:  FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  GOOD_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  BAD_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_SENDING_QUIT, fsm_do_messages_not_found_and_quit }, /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_HELO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_EHLO */
-    { FSM_ST_SENDING_MAIL_FROM, fsm_do_send_mail_from }, /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_SENDING_MAIL_FROM, fsm_do_decided_to_mail_from }, /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_SENDING_QUIT, fsm_do_decided_to_quit }, /* EVT:  NEED_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RECONNECT */
+    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  NEED_CLOSE */
   },
 
-  /* STATE 5:  FSM_ST_SENDING_HELO */
-  { { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
-    { FSM_ST_READY, fsm_do_log_good_helo_and_ready }, /* EVT:  GOOD_RESPONSE */
-    { FSM_ST_CLOSED, fsm_do_log_bad_helo_and_close }, /* EVT:  BAD_RESPONSE */
-    { FSM_ST_CLOSED, fsm_do_log_unreadable_helo_and_close }, /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_HELO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_EHLO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
-  },
-
-  /* STATE 6:  FSM_ST_SENDING_EHLO */
-  { { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
-    { FSM_ST_READY, fsm_do_log_good_ehlo_and_ready }, /* EVT:  GOOD_RESPONSE */
-    { FSM_ST_CLOSED, fsm_do_log_bad_ehlo_and_close }, /* EVT:  BAD_RESPONSE */
-    { FSM_ST_CLOSED, fsm_do_log_unreadable_ehlo_and_close }, /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_HELO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_EHLO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
-  },
-
-  /* STATE 7:  FSM_ST_SENDING_MAIL_FROM */
-  { { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
-    { FSM_ST_SENDING_RCPT, fsm_do_log_good_mail_from_and_send_rcpt_to }, /* EVT:  GOOD_RESPONSE */
-    { FSM_ST_READY, fsm_do_log_bad_mail_from_and_ready }, /* EVT:  BAD_RESPONSE */
-    { FSM_ST_READY, fsm_do_log_unreadable_mail_from_and_ready }, /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_HELO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_EHLO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
-  },
-
-  /* STATE 8:  FSM_ST_SENDING_RCPT_TO */
-  { { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
-    { FSM_ST_NEED_TO_RCPT_OR_DATA, fsm_do_log_good_rcpt_to_and_decide_rcpt_or_data }, /* EVT:  GOOD_RESPONSE */
-    { FSM_ST_NEED_TO_RCPT_OR_DATA, fsm_do_log_bad_rcpt_to_and_decide_rcpt_or_data }, /* EVT:  BAD_RESPONSE */
-    { FSM_ST_SENDING_RSET, fsm_do_log_unreadable_rcpt_to_and_rset }, /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_HELO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_EHLO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
-  },
-
-  /* STATE 9:  FSM_ST_NEED_TO_RCPT_TO_OR_DATA */
-  { { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  /* STATE 13:  FSM_ST_NEED_TO_RECONNECT_OR_CLOSE */
+  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+    { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  GOOD_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  BAD_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_HELO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_EHLO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
-  },
-
-  /* STATE 10:  FSM_ST_SENDING_DATA */
-  { { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
-    { FSM_ST_SENDING_MESSAGE, fsm_do_log_good_data_and_message }, /* EVT:  GOOD_RESPONSE */
-    { FSM_ST_SENDING_RSET, fsm_do_log_bad_data_and_rset }, /* EVT:  BAD_RESPONSE */
-    { FSM_ST_SENDING_RSET, fsm_do_log_unreadable_data_and_rset }, /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_HELO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_EHLO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
-  },
-
-  /* STATE 11:  FSM_ST_SENDING_MESSAGE */
-  { { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
-    { FSM_ST_READY, fsm_do_log_good_message_and_ready }, /* EVT:  GOOD_RESPONSE */
-    { FSM_ST_SENDING_RSET, fsm_do_log_bad_message_and_rset }, /* EVT:  BAD_RESPONSE */
-    { FSM_ST_SENDING_RSET, fsm_do_log_unreadable_message_and_rset }, /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_HELO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_EHLO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_SENDING_MESSAGE, fsm_do_log_good_message_and_message }, /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
-  },
-
-  /* STATE 12:  FSM_ST_SENDING_QUIT */
-  { { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  ESTABLISH_CONNECTION */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_ESTABLISHED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_REFUSED */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
-    { FSM_ST_CLOSED, fsm_do_log_good_quit_and_close }, /* EVT:  GOOD_RESPONSE */
-    { FSM_ST_CLOSED, fsm_do_log_bad_quit_and_close }, /* EVT:  BAD_RESPONSE */
-    { FSM_ST_CLOSED, fsm_do_log_unreadable_quit_and_close }, /* EVT:  UNREADABLE_RESPONSE */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NO_MORE_MESSAGES */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_HELO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_EHLO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MAIL_FROM */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_RCPT_TO */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_DATA */
-    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_MESSAGE */
-    { FSM_ST_INVALID, fsm_do_invalid }              /* EVT:  SEND_QUIT */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
+    { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_QUIT */
+    { FSM_ST_CONNECTING, fsm_do_log_decided_to_reconnect }, /* EVT:  NEED_RECONNECT */
+    { FSM_ST_CLOSED, fsm_do_log_decided_to_close }  /* EVT:  NEED_CLOSE */
   }
 };
-
-/**
- *  The FSM machine state
- */
-static te_fsm_state fsm_state = FSM_ST_INIT;
 
 
 #define FsmFsmErr_off     19
@@ -354,51 +341,48 @@ static te_fsm_state fsm_state = FSM_ST_INIT;
 #define FsmStInit_off     83
 
 
-static char const zFsmStrings[484] =
+static char const zFsmStrings[468] =
 /*     0 */ "** OUT-OF-RANGE **\0"
 /*    19 */ "FSM Error:  in state %d (%s), event %d (%s) is invalid\n\0"
 /*    75 */ "invalid\0"
 /*    83 */ "init\0"
-/*    88 */ "closed\0"
-/*    95 */ "connecting\0"
-/*   106 */ "connected\0"
-/*   116 */ "ready\0"
-/*   122 */ "sending_helo\0"
-/*   135 */ "sending_ehlo\0"
-/*   148 */ "sending_mail_from\0"
-/*   166 */ "sending_rcpt_to\0"
-/*   182 */ "need_to_rcpt_to_or_data\0"
-/*   206 */ "sending_data\0"
-/*   219 */ "sending_message\0"
-/*   235 */ "sending_quit\0"
-/*   248 */ "establish_connection\0"
-/*   269 */ "connection_established\0"
-/*   292 */ "connection_refused\0"
-/*   311 */ "connection_closed_by_remote\0"
-/*   339 */ "good_response\0"
-/*   353 */ "bad_response\0"
-/*   366 */ "unreadable_response\0"
-/*   386 */ "no_more_messages\0"
-/*   403 */ "send_helo\0"
-/*   413 */ "send_ehlo\0"
-/*   423 */ "send_mail_from\0"
-/*   438 */ "send_rcpt_to\0"
-/*   451 */ "send_data\0"
-/*   461 */ "send_message\0"
-/*   474 */ "send_quit";
+/*    88 */ "closing\0"
+/*    96 */ "closed\0"
+/*   103 */ "connecting\0"
+/*   114 */ "sending_helo\0"
+/*   127 */ "sending_mail_from\0"
+/*   145 */ "sending_rcpt_to\0"
+/*   161 */ "sending_data\0"
+/*   174 */ "sending_message\0"
+/*   190 */ "sending_rset\0"
+/*   203 */ "sending_quit\0"
+/*   216 */ "need_to_rcpt_to_or_data\0"
+/*   240 */ "need_to_mail_from_or_quit\0"
+/*   266 */ "need_to_reconnect_or_close\0"
+/*   293 */ "connection_closed_by_remote\0"
+/*   321 */ "internal_error\0"
+/*   336 */ "send_bytes\0"
+/*   347 */ "good_response\0"
+/*   361 */ "bad_response\0"
+/*   374 */ "unreadable_response\0"
+/*   394 */ "need_rcpt_to\0"
+/*   407 */ "need_data\0"
+/*   417 */ "need_mail_from\0"
+/*   432 */ "need_quit\0"
+/*   442 */ "need_reconnect\0"
+/*   457 */ "need_close";
 
-static const size_t aszFsmStates[13] = {
-    83,  88,  95,  106, 116, 122, 135, 148, 166, 182, 206, 219, 235 };
+static const size_t aszFsmStates[14] = {
+    83,  88,  96,  103, 114, 127, 145, 161, 174, 190, 203, 216, 240, 266 };
 
-static const size_t aszFsmEvents[16] = {
-    248, 269, 292, 311, 339, 353, 366, 386, 403, 413, 423, 438, 451, 461, 474,
-    75 };
+static const size_t aszFsmEvents[13] = {
+    293, 321, 336, 347, 361, 374, 394, 407, 417, 432, 442, 457, 75 };
 
 
-#define FSM_EVT_NAME(t)   ( (((unsigned)(t)) >= 16) \
+#define FSM_EVT_NAME(t)   ( (((unsigned)(t)) >= 13) \
     ? zFsmStrings : zFsmStrings + aszFsmEvents[t])
 
-#define FSM_STATE_NAME(s) ( (((unsigned)(s)) >= 13) \
+#define FSM_STATE_NAME(s) ( (((unsigned)(s)) >= 14) \
     ? zFsmStrings : zFsmStrings + aszFsmStates[s])
 
 #ifndef EXIT_FAILURE
@@ -423,363 +407,754 @@ fsm_invalid_transition( te_fsm_state st, te_fsm_event evt )
 }
 
 static te_fsm_state
-fsm_do_connection_established(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_closed_by_remote(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == CONNECTION ESTABLISHED == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == CONNECTION ESTABLISHED == DO NOT CHANGE THIS COMMENT  */
+/*  START == CLOSED BY REMOTE == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logClosedByRemote(smtpConnection->socket,
+                      smtpConnection->domain);
+    return closeConnection(connection, head, response, readFdSet, writeFdSet,
+                           FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == CLOSED BY REMOTE == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_connection_refused(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_connect_bad(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == CONNECTION REFUSED == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == CONNECTION REFUSED == DO NOT CHANGE THIS COMMENT  */
+/*  START == CONNECT BAD == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logBadResponse(smtpConnection->socket,
+                   smtpConnection->domain,
+                   response,
+                   "connect");
+    return closeConnection(connection, head, response, readFdSet, writeFdSet,
+                           FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == CONNECT BAD == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_establish_connection(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_connect_success(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == ESTABLISH CONNECTION == DO NOT CHANGE THIS COMMENT  */
+/*  START == CONNECT SUCCESS == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logGoodResponse(smtpConnection->socket,
+                    smtpConnection->domain,
+                    response,
+                    "connect");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next,  FSM_STATE_NAME(maybe_next));
+    String *heloCommand = getHELOCommand();
+    if (!heloCommand || stringConcat(smtpConnection->writeBuffer, heloCommand) < 0) {
+        stringDeinit(heloCommand);
+        return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
+    }
+    stringDeinit(heloCommand);
+    FD_SET(smtpConnection->socket, writeFdSet);
     return maybe_next;
-/*  END   == ESTABLISH CONNECTION == DO NOT CHANGE THIS COMMENT  */
+/*  END   == CONNECT SUCCESS == DO NOT CHANGE THIS COMMENT  */
+}
+
+static te_fsm_state
+fsm_do_connect_unreadable(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
+    te_fsm_state initial,
+    te_fsm_state maybe_next,
+    te_fsm_event trans_evt)
+{
+/*  START == CONNECT UNREADABLE == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logUnreadableResponse(smtpConnection->socket,
+                          smtpConnection->domain,
+                          response,
+                          "connect");
+    return closeConnection(connection, head, response, readFdSet, writeFdSet,
+                           FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == CONNECT UNREADABLE == DO NOT CHANGE THIS COMMENT  */
+}
+
+static te_fsm_state
+fsm_do_data_bad(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
+    te_fsm_state initial,
+    te_fsm_state maybe_next,
+    te_fsm_event trans_evt)
+{
+/*  START == DATA BAD == DO NOT CHANGE THIS COMMENT  */
+    return responseBadAndNeedRset(connection, head, response, readFdSet, writeFdSet, "DATA",
+                                  FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == DATA BAD == DO NOT CHANGE THIS COMMENT  */
+}
+
+static te_fsm_state
+fsm_do_data_success(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
+    te_fsm_state initial,
+    te_fsm_state maybe_next,
+    te_fsm_event trans_evt)
+{
+/*  START == DATA SUCCESS == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logGoodResponse(smtpConnection->socket,
+                    smtpConnection->domain,
+                    response,
+                    "DATA");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    String *message = stringInitCopy(smtpConnection->currentMessage->data);
+    if (!message || stringConcat(smtpConnection->writeBuffer, message) < 0) {
+        stringDeinit(message);
+        return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
+    }
+    stringDeinit(message);
+    FD_SET(smtpConnection->socket, writeFdSet);
+    return maybe_next;
+/*  END   == DATA SUCCESS == DO NOT CHANGE THIS COMMENT  */
+}
+
+static te_fsm_state
+fsm_do_data_unreadable(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
+    te_fsm_state initial,
+    te_fsm_state maybe_next,
+    te_fsm_event trans_evt)
+{
+/*  START == DATA UNREADABLE == DO NOT CHANGE THIS COMMENT  */
+    return responseUnreadableAndNeedRset(connection, head, response, readFdSet, writeFdSet, "DATA",
+                                         FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == DATA UNREADABLE == DO NOT CHANGE THIS COMMENT  */
+}
+
+static te_fsm_state
+fsm_do_decided_to_data(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
+    te_fsm_state initial,
+    te_fsm_state maybe_next,
+    te_fsm_event trans_evt)
+{
+/*  START == DECIDED TO DATA == DO NOT CHANGE THIS COMMENT  */
+    String *dataCommand = getDATACommand();
+    if (!dataCommand) {
+        stringDeinit(dataCommand);
+        return fsm_step(initial, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
+    }
+    return decidedTo(maybe_next, connection, head, response, readFdSet, writeFdSet, dataCommand,
+                     FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == DECIDED TO DATA == DO NOT CHANGE THIS COMMENT  */
+}
+
+static te_fsm_state
+fsm_do_decided_to_mail_from(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
+    te_fsm_state initial,
+    te_fsm_state maybe_next,
+    te_fsm_event trans_evt)
+{
+/*  START == DECIDED TO MAIL FROM == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    smtpMessageDeinit(smtpConnection->currentMessage);
+    smtpConnection->currentMessage = NULL;
+    if (smtpConnectionSetCurrentMessage(smtpConnection) < 0) {
+        return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
+    }
+    String *mailCommand = getMAILFROMCommand(smtpConnection->currentMessage->from);
+    if (!mailCommand) {
+        stringDeinit(mailCommand);
+        return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
+    }
+    return decidedTo(maybe_next, connection, head, response, readFdSet, writeFdSet, mailCommand,
+                     FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == DECIDED TO MAIL FROM == DO NOT CHANGE THIS COMMENT  */
+}
+
+static te_fsm_state
+fsm_do_decided_to_quit(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
+    te_fsm_state initial,
+    te_fsm_state maybe_next,
+    te_fsm_event trans_evt)
+{
+/*  START == DECIDED TO QUIT == DO NOT CHANGE THIS COMMENT  */
+    String *quitCommand = getQUITCommand();
+    if (!quitCommand) {
+        stringDeinit(quitCommand);
+        return fsm_step(initial, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
+    }
+    return decidedTo(maybe_next, connection, head, response, readFdSet, writeFdSet, quitCommand,
+                     FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == DECIDED TO QUIT == DO NOT CHANGE THIS COMMENT  */
+}
+
+static te_fsm_state
+fsm_do_decided_to_rcpt(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
+    te_fsm_state initial,
+    te_fsm_state maybe_next,
+    te_fsm_event trans_evt)
+{
+/*  START == DECIDED TO RCPT == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    String *rcptCommand = getRCPTTOCommand(smtpConnection->currentMessage->recipients[smtpConnection->sentRcptTos++]);
+    if (!rcptCommand) {
+        stringDeinit(rcptCommand);
+        return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
+    }
+    return decidedTo(maybe_next, connection, head, response, readFdSet, writeFdSet, rcptCommand,
+                     FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == DECIDED TO RCPT == DO NOT CHANGE THIS COMMENT  */
+}
+
+static te_fsm_state
+fsm_do_helo_bad(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
+    te_fsm_state initial,
+    te_fsm_state maybe_next,
+    te_fsm_event trans_evt)
+{
+/*  START == HELO BAD == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logBadResponse(smtpConnection->socket,
+                   smtpConnection->domain,
+                   response,
+                   "HELO");
+    return closeConnection(connection, head, response, readFdSet, writeFdSet,
+                           FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == HELO BAD == DO NOT CHANGE THIS COMMENT  */
+}
+
+static te_fsm_state
+fsm_do_helo_success_decide_mail_from_or_quit(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
+    te_fsm_state initial,
+    te_fsm_state maybe_next,
+    te_fsm_event trans_evt)
+{
+/*  START == HELO SUCCESS DECIDE MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logGoodResponse(smtpConnection->socket,
+                    smtpConnection->domain,
+                    response,
+                    "HELO");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideMailFromOrQuit(smtpConnection, head, response, readFdSet, writeFdSet);
+/*  END   == HELO SUCCESS DECIDE MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
+}
+
+static te_fsm_state
+fsm_do_helo_unreadable(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
+    te_fsm_state initial,
+    te_fsm_state maybe_next,
+    te_fsm_event trans_evt)
+{
+/*  START == HELO UNREADABLE == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logUnreadableResponse(smtpConnection->socket,
+                          smtpConnection->domain,
+                          response,
+                          "connect");
+    return closeConnection(connection, head, response, readFdSet, writeFdSet,
+                           FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == HELO UNREADABLE == DO NOT CHANGE THIS COMMENT  */
+}
+
+static te_fsm_state
+fsm_do_internal_error_decide_to_reconnect_or_close(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
+    te_fsm_state initial,
+    te_fsm_state maybe_next,
+    te_fsm_event trans_evt)
+{
+/*  START == INTERNAL ERROR DECIDE TO RECONNECT OR CLOSE == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logInternalError(smtpConnection->socket,
+                     smtpConnection->domain);
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideReconnectOrClose(smtpConnection, head, response, readFdSet, writeFdSet);
+/*  END   == INTERNAL ERROR DECIDE TO RECONNECT OR CLOSE == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
 fsm_do_invalid(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
 /*  START == INVALID == DO NOT CHANGE THIS COMMENT  */
-    exit(fsm_invalid_transition(initial, trans_evt));
+    fsm_invalid_transition(initial, trans_evt);
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logInvalidTransition(
+            smtpConnection->socket,
+            smtpConnection->domain);
+    return closeConnection(connection, head, response, readFdSet, writeFdSet,
+                           FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
 /*  END   == INVALID == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_bad_data_and_rset(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_log_decided_to_close(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG BAD DATA AND RSET == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG BAD DATA AND RSET == DO NOT CHANGE THIS COMMENT  */
+/*  START == LOG DECIDED TO CLOSE == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logDecidedTo(smtpConnection->socket,
+                 smtpConnection->domain,
+                 "close");
+    return closeConnection(connection, head, response, readFdSet, writeFdSet,
+                           FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == LOG DECIDED TO CLOSE == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_bad_ehlo_and_close(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_log_decided_to_reconnect(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG BAD EHLO AND CLOSE == DO NOT CHANGE THIS COMMENT  */
+/*  START == LOG DECIDED TO RECONNECT == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logDecidedTo(smtpConnection->socket,
+                 smtpConnection->domain,
+                 "reconnect");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    FD_CLR(smtpConnection->socket, writeFdSet);
+    if (smtpConnectionReconnect(smtpConnection, 1) < 0) {
+        return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
+    }
     return maybe_next;
-/*  END   == LOG BAD EHLO AND CLOSE == DO NOT CHANGE THIS COMMENT  */
+/*  END   == LOG DECIDED TO RECONNECT == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_bad_helo_and_close(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_mail_from_bad_decide_mail_from_or_quit(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG BAD HELO AND CLOSE == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG BAD HELO AND CLOSE == DO NOT CHANGE THIS COMMENT  */
+/*  START == MAIL FROM BAD DECIDE MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection* smtpConnection = (SMTPConnection*) connection;
+    logBadResponse(smtpConnection->socket,
+                   smtpConnection->domain,
+                   response,
+                   "MAIL FROM");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideMailFromOrQuit(smtpConnection, head, response, readFdSet, writeFdSet);
+/*  END   == MAIL FROM BAD DECIDE MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_bad_mail_from_and_ready(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_mail_from_success_decide_rcpt_to_or_data(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG BAD MAIL FROM AND READY == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG BAD MAIL FROM AND READY == DO NOT CHANGE THIS COMMENT  */
+/*  START == MAIL FROM SUCCESS DECIDE RCPT TO OR DATA == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logGoodResponse(smtpConnection->socket,
+                    smtpConnection->domain,
+                    response,
+                    "MAIL FROM");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideRcptOrData(connection, head, response, readFdSet, writeFdSet);
+/*  END   == MAIL FROM SUCCESS DECIDE RCPT TO OR DATA == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_bad_message_and_rset(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_mail_from_unreadable_decide_mail_from_or_quit(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG BAD MESSAGE AND RSET == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG BAD MESSAGE AND RSET == DO NOT CHANGE THIS COMMENT  */
+/*  START == MAIL FROM UNREADABLE DECIDE MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logUnreadableResponse(smtpConnection->socket,
+                          smtpConnection->domain,
+                          response,
+                          "MAIL FROM");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideMailFromOrQuit(connection, head, response, readFdSet, writeFdSet);
+/*  END   == MAIL FROM UNREADABLE DECIDE MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_bad_quit_and_close(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_message_bad_decide_to_mail_from_or_quit(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG BAD QUIT AND CLOSE == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG BAD QUIT AND CLOSE == DO NOT CHANGE THIS COMMENT  */
+/*  START == MESSAGE BAD DECIDE TO MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logBadResponse(smtpConnection->socket,
+                   smtpConnection->domain,
+                   response,
+                   "message");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideMailFromOrQuit(connection, head, response, readFdSet, writeFdSet);
+/*  END   == MESSAGE BAD DECIDE TO MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_bad_rcpt_to_and_decide_rcpt_or_data(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_message_success_decide_to_mail_from_or_quit(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG BAD RCPT TO AND DECIDE RCPT OR DATA == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG BAD RCPT TO AND DECIDE RCPT OR DATA == DO NOT CHANGE THIS COMMENT  */
+/*  START == MESSAGE SUCCESS DECIDE TO MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection* smtpConnection = (SMTPConnection*) connection;
+    logGoodResponse(smtpConnection->socket,
+                    smtpConnection->domain,
+                    response,
+                    "message");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideMailFromOrQuit(smtpConnection, head, response, readFdSet, writeFdSet);
+/*  END   == MESSAGE SUCCESS DECIDE TO MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_good_data_and_message(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_message_unreadable_decide_to_mail_from_or_quit(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG GOOD DATA AND MESSAGE == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG GOOD DATA AND MESSAGE == DO NOT CHANGE THIS COMMENT  */
+/*  START == MESSAGE UNREADABLE DECIDE TO MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logUnreadableResponse(smtpConnection->socket,
+                          smtpConnection->domain,
+                          response,
+                          "message");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideMailFromOrQuit(connection, head, response, readFdSet, writeFdSet);
+/*  END   == MESSAGE UNREADABLE DECIDE TO MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_good_ehlo_and_ready(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_quit_bad(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG GOOD EHLO AND READY == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG GOOD EHLO AND READY == DO NOT CHANGE THIS COMMENT  */
+/*  START == QUIT BAD == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logBadResponse(smtpConnection->socket,
+                   smtpConnection->domain,
+                   response,
+                   "QUIT");
+    return closeConnection(connection, head, response, readFdSet, writeFdSet,
+                           FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == QUIT BAD == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_good_helo_and_ready(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_quit_success(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG GOOD HELO AND READY == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG GOOD HELO AND READY == DO NOT CHANGE THIS COMMENT  */
+/*  START == QUIT SUCCESS == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logGoodResponse(smtpConnection->socket,
+                    smtpConnection->domain,
+                    response,
+                    "QUIT");
+    return closeConnection(connection, head, response, readFdSet, writeFdSet,
+                           FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == QUIT SUCCESS == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_good_mail_from_and_send_rcpt_to(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_quit_unreadable(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG GOOD MAIL FROM AND SEND RCPT TO == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG GOOD MAIL FROM AND SEND RCPT TO == DO NOT CHANGE THIS COMMENT  */
+/*  START == QUIT UNREADABLE == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logUnreadableResponse(smtpConnection->socket,
+                          smtpConnection->domain,
+                          response,
+                          "QUIT");
+    return closeConnection(connection, head, response, readFdSet, writeFdSet,
+                           FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == QUIT UNREADABLE == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_good_message_and_message(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_rcpt_to_bad_decide_rcpt_to_or_data(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG GOOD MESSAGE AND MESSAGE == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG GOOD MESSAGE AND MESSAGE == DO NOT CHANGE THIS COMMENT  */
+/*  START == RCPT TO BAD DECIDE RCPT TO OR DATA == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logBadResponse(smtpConnection->socket,
+                   smtpConnection->domain,
+                   response,
+                   "RCPT TO");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideRcptOrData(smtpConnection, head, response, readFdSet, writeFdSet);
+/*  END   == RCPT TO BAD DECIDE RCPT TO OR DATA == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_good_message_and_ready(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_rcpt_to_success_decide_rcpt_to_or_data(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG GOOD MESSAGE AND READY == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG GOOD MESSAGE AND READY == DO NOT CHANGE THIS COMMENT  */
+/*  START == RCPT TO SUCCESS DECIDE RCPT TO OR DATA == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logGoodResponse(smtpConnection->socket,
+                    smtpConnection->domain,
+                    response,
+                    "RCPT TO");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideRcptOrData(smtpConnection, head, response, readFdSet, writeFdSet);
+/*  END   == RCPT TO SUCCESS DECIDE RCPT TO OR DATA == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_good_quit_and_close(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_rcpt_to_unreadable(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG GOOD QUIT AND CLOSE == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG GOOD QUIT AND CLOSE == DO NOT CHANGE THIS COMMENT  */
+/*  START == RCPT TO UNREADABLE == DO NOT CHANGE THIS COMMENT  */
+    return responseUnreadableAndNeedRset(connection, head, response, readFdSet, writeFdSet, "RCPT TO",
+                                         FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
+/*  END   == RCPT TO UNREADABLE == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_good_rcpt_to_and_decide_rcpt_or_data(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_rset_bad_decide_to_reconnect_or_close(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG GOOD RCPT TO AND DECIDE RCPT OR DATA == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG GOOD RCPT TO AND DECIDE RCPT OR DATA == DO NOT CHANGE THIS COMMENT  */
+/*  START == RSET BAD DECIDE TO RECONNECT OR CLOSE == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logBadResponse(smtpConnection->socket,
+                   smtpConnection->domain,
+                   response,
+                   "RSET");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideReconnectOrClose(connection, head, response, readFdSet, writeFdSet);
+/*  END   == RSET BAD DECIDE TO RECONNECT OR CLOSE == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_unreadable_data_and_rset(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_rset_success_decide_to_mail_to_or_quit(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG UNREADABLE DATA AND RSET == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG UNREADABLE DATA AND RSET == DO NOT CHANGE THIS COMMENT  */
+/*  START == RSET SUCCESS DECIDE TO MAIL TO OR QUIT == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logGoodResponse(smtpConnection->socket,
+                    smtpConnection->domain,
+                    response,
+                    "RSET");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideMailFromOrQuit(connection, head, response, readFdSet, writeFdSet);
+/*  END   == RSET SUCCESS DECIDE TO MAIL TO OR QUIT == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_unreadable_ehlo_and_close(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_rset_unreadable_decide_to_reconnect_or_close(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG UNREADABLE EHLO AND CLOSE == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG UNREADABLE EHLO AND CLOSE == DO NOT CHANGE THIS COMMENT  */
+/*  START == RSET UNREADABLE DECIDE TO RECONNECT OR CLOSE == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    logUnreadableResponse(smtpConnection->socket,
+                          smtpConnection->domain,
+                          response,
+                          "RSET");
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    return decideReconnectOrClose(connection, head, response, readFdSet, writeFdSet);
+/*  END   == RSET UNREADABLE DECIDE TO RECONNECT OR CLOSE == DO NOT CHANGE THIS COMMENT  */
 }
 
 static te_fsm_state
-fsm_do_log_unreadable_helo_and_close(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
+fsm_do_send_bytes(
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet,
     te_fsm_state initial,
     te_fsm_state maybe_next,
     te_fsm_event trans_evt)
 {
-/*  START == LOG UNREADABLE HELO AND CLOSE == DO NOT CHANGE THIS COMMENT  */
+/*  START == SEND BYTES == DO NOT CHANGE THIS COMMENT  */
+    SMTPConnection *smtpConnection = (SMTPConnection*) connection;
+    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
+    if (!smtpConnectionIsNeedToWrite(connection)) {
+        FD_CLR(smtpConnection->socket, writeFdSet);
+    }
     return maybe_next;
-/*  END   == LOG UNREADABLE HELO AND CLOSE == DO NOT CHANGE THIS COMMENT  */
-}
-
-static te_fsm_state
-fsm_do_log_unreadable_mail_from_and_ready(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
-    te_fsm_state initial,
-    te_fsm_state maybe_next,
-    te_fsm_event trans_evt)
-{
-/*  START == LOG UNREADABLE MAIL FROM AND READY == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG UNREADABLE MAIL FROM AND READY == DO NOT CHANGE THIS COMMENT  */
-}
-
-static te_fsm_state
-fsm_do_log_unreadable_message_and_rset(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
-    te_fsm_state initial,
-    te_fsm_state maybe_next,
-    te_fsm_event trans_evt)
-{
-/*  START == LOG UNREADABLE MESSAGE AND RSET == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG UNREADABLE MESSAGE AND RSET == DO NOT CHANGE THIS COMMENT  */
-}
-
-static te_fsm_state
-fsm_do_log_unreadable_quit_and_close(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
-    te_fsm_state initial,
-    te_fsm_state maybe_next,
-    te_fsm_event trans_evt)
-{
-/*  START == LOG UNREADABLE QUIT AND CLOSE == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG UNREADABLE QUIT AND CLOSE == DO NOT CHANGE THIS COMMENT  */
-}
-
-static te_fsm_state
-fsm_do_log_unreadable_rcpt_to_and_rset(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
-    te_fsm_state initial,
-    te_fsm_state maybe_next,
-    te_fsm_event trans_evt)
-{
-/*  START == LOG UNREADABLE RCPT TO AND RSET == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == LOG UNREADABLE RCPT TO AND RSET == DO NOT CHANGE THIS COMMENT  */
-}
-
-static te_fsm_state
-fsm_do_messages_not_found_and_quit(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
-    te_fsm_state initial,
-    te_fsm_state maybe_next,
-    te_fsm_event trans_evt)
-{
-/*  START == MESSAGES NOT FOUND AND QUIT == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == MESSAGES NOT FOUND AND QUIT == DO NOT CHANGE THIS COMMENT  */
-}
-
-static te_fsm_state
-fsm_do_send_ehlo(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
-    te_fsm_state initial,
-    te_fsm_state maybe_next,
-    te_fsm_event trans_evt)
-{
-/*  START == SEND EHLO == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == SEND EHLO == DO NOT CHANGE THIS COMMENT  */
-}
-
-static te_fsm_state
-fsm_do_send_helo(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
-    te_fsm_state initial,
-    te_fsm_state maybe_next,
-    te_fsm_event trans_evt)
-{
-/*  START == SEND HELO == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == SEND HELO == DO NOT CHANGE THIS COMMENT  */
-}
-
-static te_fsm_state
-fsm_do_send_mail_from(
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection,
-    te_fsm_state initial,
-    te_fsm_state maybe_next,
-    te_fsm_event trans_evt)
-{
-/*  START == SEND MAIL FROM == DO NOT CHANGE THIS COMMENT  */
-    return maybe_next;
-/*  END   == SEND MAIL FROM == DO NOT CHANGE THIS COMMENT  */
+/*  END   == SEND BYTES == DO NOT CHANGE THIS COMMENT  */
 }
 
 /**
@@ -789,14 +1164,18 @@ fsm_do_send_mail_from(
  */
 te_fsm_state
 fsm_step(
+    te_fsm_state fsm_state,
     te_fsm_event trans_evt,
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection )
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet )
 {
     te_fsm_state nxtSt;
     fsm_callback_t * pT;
 
     if ((unsigned)fsm_state >= FSM_ST_INVALID) {
-        fsm_state = FSM_ST_INIT;
         return FSM_ST_INIT;
     }
 
@@ -814,9 +1193,8 @@ fsm_step(
     }
 
     if (pT != NULL)
-        nxtSt = (*pT)( connection, fsm_state, nxtSt, trans_evt );
+        nxtSt = (*pT)( head, connection, response, readFdSet, writeFdSet, fsm_state, nxtSt, trans_evt );
 
-    fsm_state = nxtSt;
 
     /* START == FINISH STEP == DO NOT CHANGE THIS COMMENT */
     /* END   == FINISH STEP == DO NOT CHANGE THIS COMMENT */

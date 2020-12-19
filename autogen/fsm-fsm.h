@@ -54,16 +54,16 @@
  *  Count of non-terminal states.  The generated states INVALID and DONE
  *  are terminal, but INIT is not  :-).
  */
-#define FSM_STATE_CT  13
+#define FSM_STATE_CT  14
 typedef enum {
-    FSM_ST_INIT,                    FSM_ST_CLOSED,
-    FSM_ST_CONNECTING,              FSM_ST_CONNECTED,
-    FSM_ST_READY,                   FSM_ST_SENDING_HELO,
-    FSM_ST_SENDING_EHLO,            FSM_ST_SENDING_MAIL_FROM,
-    FSM_ST_SENDING_RCPT_TO,         FSM_ST_NEED_TO_RCPT_TO_OR_DATA,
-    FSM_ST_SENDING_DATA,            FSM_ST_SENDING_MESSAGE,
-    FSM_ST_SENDING_QUIT,            FSM_ST_INVALID,
-    FSM_ST_DONE
+    FSM_ST_INIT,                       FSM_ST_CLOSING,
+    FSM_ST_CLOSED,                     FSM_ST_CONNECTING,
+    FSM_ST_SENDING_HELO,               FSM_ST_SENDING_MAIL_FROM,
+    FSM_ST_SENDING_RCPT_TO,            FSM_ST_SENDING_DATA,
+    FSM_ST_SENDING_MESSAGE,            FSM_ST_SENDING_RSET,
+    FSM_ST_SENDING_QUIT,               FSM_ST_NEED_TO_RCPT_TO_OR_DATA,
+    FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT,  FSM_ST_NEED_TO_RECONNECT_OR_CLOSE,
+    FSM_ST_INVALID,                    FSM_ST_DONE
 } te_fsm_state;
 
 /**
@@ -71,16 +71,15 @@ typedef enum {
  *
  *  Count of the valid transition events
  */
-#define FSM_EVENT_CT 15
+#define FSM_EVENT_CT 12
 typedef enum {
-    FSM_EV_ESTABLISH_CONNECTION,        FSM_EV_CONNECTION_ESTABLISHED,
-    FSM_EV_CONNECTION_REFUSED,          FSM_EV_CONNECTION_CLOSED_BY_REMOTE,
-    FSM_EV_GOOD_RESPONSE,               FSM_EV_BAD_RESPONSE,
-    FSM_EV_UNREADABLE_RESPONSE,         FSM_EV_NO_MORE_MESSAGES,
-    FSM_EV_SEND_HELO,                   FSM_EV_SEND_EHLO,
-    FSM_EV_SEND_MAIL_FROM,              FSM_EV_SEND_RCPT_TO,
-    FSM_EV_SEND_DATA,                   FSM_EV_SEND_MESSAGE,
-    FSM_EV_SEND_QUIT,                   FSM_EV_INVALID
+    FSM_EV_CONNECTION_CLOSED_BY_REMOTE, FSM_EV_INTERNAL_ERROR,
+    FSM_EV_SEND_BYTES,                  FSM_EV_GOOD_RESPONSE,
+    FSM_EV_BAD_RESPONSE,                FSM_EV_UNREADABLE_RESPONSE,
+    FSM_EV_NEED_RCPT_TO,                FSM_EV_NEED_DATA,
+    FSM_EV_NEED_MAIL_FROM,              FSM_EV_NEED_QUIT,
+    FSM_EV_NEED_RECONNECT,              FSM_EV_NEED_CLOSE,
+    FSM_EV_INVALID
 } te_fsm_event;
 
 /**
@@ -90,8 +89,13 @@ typedef enum {
  */
 extern te_fsm_state
 fsm_step(
+    te_fsm_state fsm_state,
     te_fsm_event trans_evt,
-    /* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection );
+    /* SMTPConnectionList */ void **head,
+    /* SMTPConnection */ void *connection,
+    /* String */ const void *response,
+    /* fd_set */ void *readFdSet,
+    /* fd_set */ void *writeFdSet );
 
 #endif /* AUTOFSM_FSM_FSM_H_GUARD */
 /*

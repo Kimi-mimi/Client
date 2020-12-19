@@ -11,7 +11,7 @@
 String *getHELOCommand() {
     String *command = NULL;
 
-    command = stringInitFromStringBuf("HELO" CRLF);
+    command = stringInitFromStringBuf("HELO " KIMI_MIMI_DOMAIN_NAME CRLF);
     if (!command) {
         errPrint();
         return NULL;
@@ -23,7 +23,7 @@ String *getHELOCommand() {
 String *getEHLOCommand() {
     String *command = NULL;
 
-    command = stringInitFromStringBuf("EHLO" CRLF);
+    command = stringInitFromStringBuf("EHLO " KIMI_MIMI_DOMAIN_NAME CRLF);
     if (!command) {
         errPrint();
         return NULL;

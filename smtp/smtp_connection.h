@@ -18,7 +18,10 @@ typedef struct {
     int socket;                             // Дескриптор сокета
     SMTPMessageQueue *messageQueue;         // Очередь сообщений для подключения
     SMTPMessage *currentMessage;            // Сообщение, которое сейчас отправляется
+    size_t sentRcptTos;                     // Количество отправленных команд RCPT TO
     String *domain;                         // Домен, к которому установлено подключение
+    String *host;                           // Хост
+    int port;                               // Порт
     String *readBuffer;                     // Буфер того, что пришло на сокет
     String *writeBuffer;                    // Буфер того, что отправить на сокет
     te_fsm_state connState;                 // Состояние подключения
@@ -26,8 +29,9 @@ typedef struct {
 } SMTPConnection;
 
 String *getIpByHost(const String *host, int *port);
-int initAndConnectSocket(const char* serverHost, int serverPort);
 SMTPConnection *smtpConnectionInitEmpty(const String *domain);
+
+int smtpConnectionReconnect(SMTPConnection *self, int needClose);
 
 int smtpConnectionIsNeedToWrite(const SMTPConnection *self);
 int smtpConnectionIsHaveMoreMessages(const SMTPConnection *self);

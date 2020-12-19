@@ -1,97 +1,94 @@
 Autogen Definitions fsm;
 
 method = callout;
-type   = stepping;
+type   = reentrant;
 
 prefix = fsm;
 
-cookie = "/* SMTPConnectionList */ void *head, /* SMTPConnection */ void *connection";
+cookie = "/* SMTPConnectionList */ void **head";
+cookie = "/* SMTPConnection */ void *connection";
+cookie = "/* String */ const void *response";
+cookie = "/* fd_set */ void *readFdSet";
+cookie = "/* fd_set */ void *writeFdSet";
 
-state  = closed, connecting, connected, ready,
+state  = closing, closed, connecting,
     sending_helo,
-    sending_ehlo,
     sending_mail_from,
     sending_rcpt_to,
-    need_to_rcpt_to_or_data,
     sending_data,
     sending_message,
-    sending_quit;
+    sending_rset,
+    sending_quit,
+    need_to_rcpt_to_or_data,
+    need_to_mail_from_or_quit,
+    need_to_reconnect_or_close;
 
-event  = establish_connection, connection_established, connection_refused, connection_closed_by_remote,
+event  = connection_closed_by_remote, internal_error,
+    send_bytes,
     good_response, bad_response, unreadable_response,
-    no_more_messages,
-    send_helo,
-    send_ehlo,
-    send_mail_from,
-    send_rcpt_to,
-    send_data,
-    send_message,
-    send_quit;
+    need_rcpt_to, need_data,
+    need_mail_from, need_quit,
+    need_reconnect, need_close;
 
 transition =
-{ tst = '*';                    tev = internal_error;           next = closed;                  ttype = internal_error; };
+{ tst = '*';                        tev = internal_error;               next = need_to_reconnect_or_close;  ttype = internal_error_decide_to_reconnect_or_close; },
+{ tst = '*';                        tev = connection_closed_by_remote;  next = closing;                     ttype = closed_by_remote; };
 
 transition =
-{ tst = closed;                 tev = establish_connection;     next = connecting;              ttype = establish_connection; };
+{ tst = connecting;                 tev = good_response;                next = sending_helo;                ttype = connect_success; },
+{ tst = connecting;                 tev = bad_response;                 next = closed;                      ttype = connect_bad; },
+{ tst = connecting;                 tev = unreadable_response;          next = closed;                      ttype = connect_unreadable; };
 
 transition =
-{ tst = connecting;             tev = connection_established;   next = connected;               ttype = connection_established; },
-{ tst = connecting;             tev = connection_refused;       next = closed;                  ttype = connection_refused; };
+{ tst = sending_helo;               tev = good_response;                next = need_to_mail_from_or_quit;   ttype = helo_success_decide_mail_from_or_quit; },
+{ tst = sending_helo;               tev = bad_response;                 next = closed;                      ttype = helo_bad; },
+{ tst = sending_helo;               tev = unreadable_response;          next = closed;                      ttype = helo_unreadable; },
+{ tst = sending_helo;               tev = send_bytes;                   next = sending_helo;                ttype = send_bytes; };
 
 transition =
-{ tst = connected;              tev = send_helo;                next = sending_helo;            ttype = send_helo; },
-{ tst = connected;              tev = send_ehlo;                next = sending_ehlo;            ttype = send_ehlo; };
-
-
-transition =
-{ tst = sending_helo;           tev = good_response;            next = ready;                   ttype = log_good_helo_and_ready; },
-{ tst = sending_helo;           tev = bad_response;             next = closed;                  ttype = log_bad_helo_and_close; },
-{ tst = sending_helo;           tev = unreadable_response;      next = closed;                  ttype = log_unreadable_helo_and_close; };
+{ tst = sending_quit;               tev = good_response;                next = closed;                      ttype = quit_success; },
+{ tst = sending_quit;               tev = bad_response;                 next = closed;                      ttype = quit_bad; },
+{ tst = sending_quit;               tev = unreadable_response;          next = closed;                      ttype = quit_unreadable; },
+{ tst = sending_quit;               tev = send_bytes;                   next = sending_quit;                ttype = send_bytes; };
 
 transition =
-{ tst = sending_ehlo;           tev = good_response;            next = ready;                   ttype = log_good_ehlo_and_ready; },
-{ tst = sending_ehlo;           tev = bad_response;             next = closed;                  ttype = log_bad_ehlo_and_close; },
-{ tst = sending_ehlo;           tev = unreadable_response;      next = closed;                  ttype = log_unreadable_ehlo_and_close; };
-
-
-transition =
-{ tst = ready;                  tev = no_more_messages;         next = sending_quit;            ttype = messages_not_found_and_quit; },
-{ tst = ready;                  tev = send_mail_from;           next = sending_mail_from;       ttype = send_mail_from; };
-
+{ tst = sending_mail_from;          tev = good_response;                next = need_to_rcpt_to_or_data;     ttype = mail_from_success_decide_rcpt_to_or_data; },
+{ tst = sending_mail_from;          tev = bad_response;                 next = need_to_mail_from_or_quit;   ttype = mail_from_bad_decide_mail_from_or_quit; },
+{ tst = sending_mail_from;          tev = unreadable_response;          next = need_to_mail_from_or_quit;   ttype = mail_from_unreadable_decide_mail_from_or_quit; },
+{ tst = sending_mail_from;          tev = send_bytes;                   next = sending_mail_from;           ttype = send_bytes; };
 
 transition =
-{ tst = sending_quit;           tev = good_response;            next = closed;                  ttype = log_good_quit_and_close; },
-{ tst = sending_quit;           tev = bad_response;             next = closed;                  ttype = log_bad_quit_and_close; },
-{ tst = sending_quit;           tev = unreadable_response;      next = closed;                  ttype = log_unreadable_quit_and_close; };
-
+{ tst = need_to_mail_from_or_quit;  tev = need_mail_from;               next = sending_mail_from;           ttype = decided_to_mail_from; },
+{ tst = need_to_mail_from_or_quit;  tev = need_quit;                    next = sending_quit;                ttype = decided_to_quit; };
 
 transition =
-{ tst = sending_mail_from;      tev = good_response;            next = sending_rcpt;            ttype = log_good_mail_from_and_send_rcpt_to; },
-{ tst = sending_mail_from;      tev = bad_response;             next = ready;                   ttype = log_bad_mail_from_and_ready; },
-{ tst = sending_mail_from;      tev = unreadable_response;      next = ready;                   ttype = log_unreadable_mail_from_and_ready; };
+{ tst = sending_rcpt_to;            tev = good_response;                next = need_to_rcpt_to_or_data;     ttype = rcpt_to_success_decide_rcpt_to_or_data; },
+{ tst = sending_rcpt_to;            tev = bad_response;                 next = need_to_rcpt_to_or_data;     ttype = rcpt_to_bad_decide_rcpt_to_or_data; },
+{ tst = sending_rcpt_to;            tev = unreadable_response;          next = sending_rset;                ttype = rcpt_to_unreadable; },
+{ tst = sending_rcpt_to;            tev = send_bytes;                   next = sending_rcpt_to;             ttype = send_bytes; };
 
 transition =
-{ tst = sending_rcpt_to;        tev = good_response;            next = need_to_rcpt_or_data;    ttype = log_good_rcpt_to_and_decide_rcpt_or_data; },
-{ tst = sending_rcpt_to;        tev = bad_response;             next = need_to_rcpt_or_data;    ttype = log_bad_rcpt_to_and_decide_rcpt_or_data; },
-{ tst = sending_rcpt_to;        tev = unreadable_response;      next = sending_rset;            ttype = log_unreadable_rcpt_to_and_rset; };
+{ tst = need_to_rcpt_to_or_data;    tev = need_rcpt_to;                 next = sending_rcpt_to;             ttype = decided_to_rcpt; },
+{ tst = need_to_rcpt_to_or_data;    tev = need_data;                    next = sending_data;                ttype = decided_to_data; };
 
 transition =
-{ tst = need_to_rcpt_or_data;   tev = send_rcpt;                next = sending_rcpt;            ttype = log_decided_to_rcpt; },
-{ tst = need_to_rcpt_or_data;   tev = send_data;                next = sending_data;            ttype = log_decided_to_data; };
+{ tst = sending_data;               tev = good_response;                next = sending_message;             ttype = data_success; },
+{ tst = sending_data;               tev = bad_response;                 next = sending_rset;                ttype = data_bad; },
+{ tst = sending_data;               tev = unreadable_response;          next = sending_rset;                ttype = data_unreadable; },
+{ tst = sending_data;               tev = send_bytes;                   next = sending_data;                ttype = send_bytes; };
 
 transition =
-{ tst = sending_data;           tev = good_response;            next = sending_message;         ttype = log_good_data_and_message; },
-{ tst = sending_data;           tev = bad_response;             next = sending_rset;            ttype = log_bad_data_and_rset; },
-{ tst = sending_data;           tev = unreadable_response;      next = sending_rset;            ttype = log_unreadable_data_and_rset; };
+{ tst = sending_message;            tev = good_response;                next = need_to_mail_from_or_quit;   ttype = message_success_decide_to_mail_from_or_quit; },
+{ tst = sending_message;            tev = bad_response;                 next = sending_rset;                ttype = message_bad_decide_to_mail_from_or_quit; },
+{ tst = sending_message;            tev = unreadable_response;          next = sending_rset;                ttype = message_unreadable_decide_to_mail_from_or_quit; },
+{ tst = sending_message;            tev = send_bytes;                   next = sending_message;             ttype = send_bytes; };
 
 transition =
-{ tst = sending_message;        tev = send_message;             next = sending_message;         ttype = log_good_message_and_message; },
-{ tst = sending_message;        tev = good_response;            next = ready;                   ttype = log_good_message_and_ready; },
-{ tst = sending_message;        tev = bad_response;             next = sending_rset;            ttype = log_bad_message_and_rset; },
-{ tst = sending_message;        tev = unreadable_response;      next = sending_rset;            ttype = log_unreadable_message_and_rset; };
-
+{ tst = sending_rset;               tev = good_response;                next = need_to_mail_from_or_quit;   ttype = rset_success_decide_to_mail_to_or_quit; },
+{ tst = sending_rset;               tev = bad_response;                 next = need_to_reconnect_or_close;  ttype = rset_bad_decide_to_reconnect_or_close; },
+{ tst = sending_rset;               tev = unreadable_response;          next = need_to_reconnect_or_close;  ttype = rset_unreadable_decide_to_reconnect_or_close; },
+{ tst = sending_rset;               tev = send_bytes;                   next = sending_rset;                ttype = send_bytes; };
 
 transition =
-{ tst = sending_rset;           tev = good_response;            next = ready;                   ttype = log_good_rset_and_ready; },
-{ tst = sending_rset;           tev = bad_response;             next = closed;                  ttype = log_bad_rset_and_close; },
-{ tst = sending_rset;           tev = unreadable_response;      next = closed;                  ttype = log_unreadable_rset_and_close; };
+{ tst = need_to_reconnect_or_close; tev = need_reconnect;               next = connecting;                  ttype = log_decided_to_reconnect; },
+{ tst = need_to_reconnect_or_close; tev = need_close;                   next = closed;                      ttype = log_decided_to_close; };

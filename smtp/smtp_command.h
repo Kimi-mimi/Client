@@ -7,6 +7,8 @@
 
 #include "../bytes/string.h"
 
+#define KIMI_MIMI_DOMAIN_NAME "kimi-mimi.ru"
+
 String *getHELOCommand();
 String *getEHLOCommand();
 String *getMAILFROMCommand(const String *fromAddress);

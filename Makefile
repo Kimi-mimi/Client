@@ -7,7 +7,7 @@ BUILD_DIR_SHARED := $(BUILD_DIR)/shared
 all: create_build_dir shared main test
 
 main: create_build_dir shared main.o client.o client_errors.o logger.o smtp_command.o smtp_message.o
-main: smtp_connection.o smtp_connection_list.o smtp_message_queue.o
+main: smtp_connection.o smtp_connection_list.o smtp_message_queue.o fsm_common.o fsm.o
 	gcc $(C_VER) $(FLAGS) $(LIBS) -o $(BUILD_DIR)/main \
 $(BUILD_DIR)/main.o \
 $(BUILD_DIR)/client.o \
@@ -19,7 +19,9 @@ $(BUILD_DIR)/smtp_command.o \
 $(BUILD_DIR)/smtp_message.o \
 $(BUILD_DIR)/smtp_connection.o \
 $(BUILD_DIR)/smtp_connection_list.o \
-$(BUILD_DIR)/smtp_message_queue.o
+$(BUILD_DIR)/smtp_message_queue.o \
+$(BUILD_DIR)/fsm_common.o \
+$(BUILD_DIR)/fsm.o
 
 create_build_dir:
 	mkdir -p $(BUILD_DIR)
@@ -56,6 +58,14 @@ smtp_connection_list.o: errors/client_errors.h bytes/bytes.h
 smtp_message_queue.o: smtp/smtp_message_queue.c smtp/smtp_message_queue.h smtp/smtp_message.h
 smtp_message_queue.o: bytes/bytes.h bytes/string.h errors/client_errors.h
 	gcc $(C_VER) $(FLAGS) -c smtp/smtp_message_queue.c -o $(BUILD_DIR)/smtp_message_queue.o
+
+fsm_common.o: autogen/fsm-common.c autogen/fsm-common.h smtp/smtp_command.h smtp/smtp_connection.h smtp/smtp_connection_list.h
+fsm_common.o: bytes/string.h logger/logger.h errors/client_errors.h
+	gcc $(C_VER) $(FLAGS) -c autogen/fsm-common.c -o $(BUILD_DIR)/fsm_common.o
+
+fsm.o: autogen/fsm-fsm.c autogen/fsm-fsm.h autogen/fsm-common.h smtp/smtp_command.h smtp/smtp_connection.h smtp/smtp_connection_list.h
+fsm.o: bytes/string.h logger/logger.h errors/client_errors.h
+	gcc $(C_VER) $(FLAGS) -c autogen/fsm-fsm.c -o $(BUILD_DIR)/fsm.o
 
 client_errors.o: errors/client_errors.h errors/client_errors.c logger/logger.h
 	gcc $(C_VER) $(FLAGS) -c errors/client_errors.c -o $(BUILD_DIR)/client_errors.o
