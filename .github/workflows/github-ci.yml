@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  test:
     runs-on: macos-latest
 
     steps:
@@ -21,12 +21,6 @@ jobs:
       
     - name: make
       run: make
-      
-  test:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: build
       
     - name: test
       run: build/test/test
