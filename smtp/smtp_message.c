@@ -79,8 +79,8 @@ SMTPMessage *smtpMessageInitCopy(const SMTPMessage *copy) {
 
 SMTPMessage *smtpMessageInitFromFile(const char* filename) {
     SMTPMessage *self = NULL;
-    const String fromPrefix = { .buf = "From: ", .count = 6, .capacity = 6 };
-    const String toPrefix = { .buf = "To: ", .count = 4, .capacity = 4 };
+    const String fromPrefix = { .buf = "X-KIMI-From: ", .count = 13, .capacity = 16 };
+    const String toPrefix = { .buf = "X-KIMI-To: ", .count = 11, .capacity = 16 };
     const String subjectPrefix = { .buf = "Subject: ", .count = 9, .capacity = 9 };
     const String newlineString = NEWLINE_STRING_INITIALIZER;
     const String crlfString = CRLF_STRING_INITIALIZER;
@@ -103,12 +103,15 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
     char line[lineLen];
     memset(line, 0, lineLen);
     String *lineString = NULL;
+    String *originalLineString = NULL;
     String *slicedLineString = NULL;
     const String *currentPrefix = NULL;
     while (fgets(line, lineLen, file)) {
-        lineString = stringInitFromStringBuf(line);
-        if (!lineString) {
+        if ((lineString = stringInitFromStringBuf(line)) == NULL ||
+            (originalLineString = stringInitCopy(lineString)) == NULL) {
             errPrint();
+            stringDeinit(lineString);
+            stringDeinit(originalLineString);
             smtpMessageDeinit(self);
             return NULL;
         }
@@ -125,6 +128,15 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
                 // https://stackoverflow.com/questions/11794698/max-line-length-in-mail
                 bodyStarted = 1;
                 currentPrefix = NULL;
+            } else {
+                if (stringConcat(self->data, originalLineString) < 0) {
+                    errPrint();
+                    stringDeinit(lineString);
+                    stringDeinit(originalLineString);
+                    smtpMessageDeinit(self);
+                    return NULL;
+                }
+                continue;
             }
         }
 
@@ -133,6 +145,7 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
                     (slicedLineString = stringSlice(lineString, currentPrefix->count, lineString->count)) == NULL) {
                 errPrint();
                 stringDeinit(lineString);
+                stringDeinit(originalLineString);
                 smtpMessageDeinit(self);
                 return NULL;
             }
@@ -141,20 +154,29 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
         if (currentPrefix == &fromPrefix) {
             stringLowercaseLatin(slicedLineString);
             stringClear(self->from);
-            self->from->buf = slicedLineString->buf;
-            self->from->count = slicedLineString->count;
-            self->from->capacity = slicedLineString->capacity;
+            if (stringConcat(self->from, slicedLineString) < 0) {
+                errPrint();
+                stringDeinit(lineString);
+                stringDeinit(originalLineString);
+                smtpMessageDeinit(self);
+                return NULL;
+            }
         } else if (currentPrefix == &subjectPrefix) {
             stringClear(self->subject);
-            self->subject->buf = slicedLineString->buf;
-            self->subject->count = slicedLineString->count;
-            self->subject->capacity = slicedLineString->capacity;
+            if (stringConcat(self->subject, slicedLineString) < 0) {
+                errPrint();
+                stringDeinit(lineString);
+                stringDeinit(originalLineString);
+                smtpMessageDeinit(self);
+                return NULL;
+            }
         } else if (currentPrefix == &toPrefix) {
             stringLowercaseLatin(slicedLineString);
             if (smtpMessageAddRecipient(self, slicedLineString) < 0) {
                 errPrint();
                 stringDeinit(slicedLineString);
                 stringDeinit(lineString);
+                stringDeinit(originalLineString);
                 smtpMessageDeinit(self);
                 return NULL;
             }
@@ -162,9 +184,10 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
             slicedLineString = NULL;
         }
 
-        if (stringConcat(self->data, lineString) < 0) {
+        if (stringConcat(self->data, originalLineString) < 0) {
             errPrint();
             stringDeinit(lineString);
+            stringDeinit(originalLineString);
             smtpMessageDeinit(self);
             return NULL;
         }
@@ -173,6 +196,8 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
         slicedLineString = NULL;
         stringDeinit(lineString);
         lineString = NULL;
+        stringDeinit(originalLineString);
+        originalLineString = NULL;
         memset(line, 0, lineLen);
     }
 
@@ -454,50 +479,9 @@ String *smtpMessageGetFromHeader(const SMTPMessage *self) {
         return NULL;
     }
 
-    if ((header = smtpMessageGetAnyHeader("From", self->from)) == NULL) {
+    if ((header = smtpMessageGetAnyHeader("X-KIMI-From", self->from)) == NULL) {
         errPrint();
         return NULL;
-    }
-
-    return header;
-}
-
-String *smtpMessageGetToHeader(const SMTPMessage *self) {
-    String *header = NULL;
-    String *current = NULL;
-    const String crlfString = CRLF_STRING_INITIALIZER;
-
-    if (!self) {
-        errno = CERR_SELF_UNINITIALIZED;
-        errPrint();
-        return NULL;
-    }
-
-    if ((header = stringInitFromStringBuf("")) == NULL) {
-        errPrint();
-        return NULL;
-    }
-
-    for (int i = 0; i < self->recipientsCount; i++) {
-        if ((current = smtpMessageGetAnyHeader("To", self->recipients[i])) == NULL ||
-                stringConcat(header, current) < 0) {
-            errPrint();
-            stringDeinit(current);
-            stringDeinit(header);
-            return NULL;
-        }
-
-        if (i != self->recipientsCount - 1) {
-            if (stringConcat(header, &crlfString) < 0) {
-                errPrint();
-                stringDeinit(current);
-                stringDeinit(header);
-                return NULL;
-            }
-        }
-
-        stringDeinit(current);
-        current = NULL;
     }
 
     return header;
@@ -524,13 +508,14 @@ void smtpMessageDeinit(SMTPMessage *self) {
     if (!self)
         return;
 
-    freeAndNull(self->data);
-    freeAndNull(self->subject);
-    freeAndNull(self->from);
+    stringDeinit(self->data);
+    stringDeinit(self->subject);
+    stringDeinit(self->from);
     for (int i = 0; i > self->recipientsCount; i++) {
-        freeAndNull(self->recipients[i]);
+        stringDeinit(self->recipients[i]);
     }
     freeAndNull(self->recipients);
+    self->recipients = 0;
 
     freeAndNull(self);
 }

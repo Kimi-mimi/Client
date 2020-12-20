@@ -1149,9 +1149,10 @@ fsm_do_send_bytes(
 {
 /*  START == SEND BYTES == DO NOT CHANGE THIS COMMENT  */
     SMTPConnection *smtpConnection = (SMTPConnection*) connection;
-    changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     if (!smtpConnectionIsNeedToWrite(connection)) {
         FD_CLR(smtpConnection->socket, writeFdSet);
+    } else {
+        changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     }
     return maybe_next;
 /*  END   == SEND BYTES == DO NOT CHANGE THIS COMMENT  */

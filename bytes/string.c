@@ -77,6 +77,10 @@ int reallocStringWithCapacity(String *self, size_t newCapacity) {
 }
 
 int stringConcat(String *self, const String *append) {
+    size_t newCount = 0;
+    size_t newCapacity = 0;
+    char *newMem = NULL;
+
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;
         errPrint();
@@ -88,10 +92,21 @@ int stringConcat(String *self, const String *append) {
         return -1;
     }
 
-    if (stringReplaceCharactersFromIdxWithLen(self, self->count, 0, append) < 0) {
-        errPrint();
+    newCount = self->count + append->count;
+    newCapacity = self->capacity + append->capacity;
+    newMem = calloc(newCapacity, sizeof(char));
+    if (!newMem) {
+        errno = CERR_MEM_ALLOC;
         return -1;
     }
+
+    memcpy(newMem, self->buf, self->count);
+    memcpy(newMem + self->count, append->buf, append->count);
+
+    freeAndNull(self->buf);
+    self->buf = newMem;
+    self->count = newCount;
+    self->capacity = newCapacity;
 
     return self->count;
 }
@@ -102,8 +117,9 @@ int stringHasPrefix(String *self, const String *prefix) {
         errPrint();
         return -1;
     }
-
     if (!prefix)
+        return 0;
+    if (self->count < prefix->count)
         return 0;
 
     return stringContains(self, prefix) == 0;

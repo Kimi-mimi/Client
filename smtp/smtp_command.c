@@ -80,7 +80,7 @@ String *getRCPTTOCommand(const String *recipientAddress) {
     return command;
 }
 
-String *getDATACommand(const String *message) {
+String *getDATACommand(void) {
     String *command = NULL;
     command = stringInitFromStringBuf("DATA" CRLF);
     if (!command) {

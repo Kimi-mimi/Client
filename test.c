@@ -5,11 +5,13 @@
 #include <CUnit/Basic.h>
 #include "bytes/test/string_test.h"
 #include "bytes/test/bytes_test.h"
+#include "smtp/test/smtp_message_test.h"
 
 int main(void) {
     int ret;
     CU_pSuite stringSuite = NULL;
     CU_pSuite bytesSuite = NULL;
+    CU_pSuite smtpMessageSuite = NULL;
 
     if (CU_initialize_registry() != CUE_SUCCESS) {
         printf("Can't initialize cu_registry\n");
@@ -32,6 +34,16 @@ int main(void) {
         return CU_get_error();
     }
     if ((ret = fillSuiteWithTestsString(stringSuite)) != CUE_SUCCESS) {
+        CU_cleanup_registry();
+        return ret;
+    }
+
+    smtpMessageSuite = CU_add_suite("SMTP message module tests", initSuiteSmtpMessage, cleanupSuiteSmtpMessage);
+    if (!smtpMessageSuite) {
+        CU_cleanup_registry();
+        return CU_get_error();
+    }
+    if ((ret = fillSuiteWithTestsSmtpMessage(smtpMessageSuite)) != CUE_SUCCESS) {
         CU_cleanup_registry();
         return ret;
     }

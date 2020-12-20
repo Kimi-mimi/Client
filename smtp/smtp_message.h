@@ -31,7 +31,6 @@ String **smtpMessageGetRecipientsDomainsDistinct(const SMTPMessage *self, size_t
 int smtpMessageIsEqualByData(const SMTPMessage *self, const SMTPMessage *another);
 
 String *smtpMessageGetFromHeader(const SMTPMessage *self);
-String *smtpMessageGetToHeader(const SMTPMessage *self);
 String *smtpMessageGetSubjectHeader(const SMTPMessage *self);
 
 void smtpMessageDeinit(SMTPMessage *self);
