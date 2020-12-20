@@ -12,6 +12,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    
+    - name: install_cunit_macOS
+      run: brew install cunit
+    
+    - name: clean
+      run: make clean
       
     - name: make
       run: make
@@ -20,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    - uses: build
+      
     - name: test
       run: build/test/test
     
