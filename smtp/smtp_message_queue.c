@@ -31,16 +31,25 @@ SMTPMessageQueue *smtpMessageQueueInit(const SMTPMessage *message) {
 }
 
 SMTPMessageQueue *smtpMessageQueuePush(SMTPMessageQueue *head, const SMTPMessage *message) {
-    SMTPMessageQueue *newHead = NULL;
+    SMTPMessageQueue *newEntry = NULL;
+    SMTPMessageQueue *cur = head;
 
-    newHead = smtpMessageQueueInit(message);
-    if (!newHead) {
+    newEntry = smtpMessageQueueInit(message);
+    if (!newEntry) {
         errPrint();
         return NULL;
     }
 
-    newHead->next = head;
-    return newHead;
+    if (!head) {
+        return newEntry;
+    }
+
+    while (cur->next) {
+        cur = cur->next;
+    }
+
+    cur->next = newEntry;
+    return head;
 }
 
 SMTPMessageQueue *smtpMessageQueuePop(SMTPMessageQueue *head, SMTPMessage **message) {
@@ -66,8 +75,7 @@ size_t smtpMessageQueueCount(SMTPMessageQueue *head) {
 
     while (cur) {
         ans++;
-        head = head->next;
-        cur = head;
+        cur = cur->next;
     }
 
     return ans;

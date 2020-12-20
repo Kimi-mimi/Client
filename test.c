@@ -6,12 +6,14 @@
 #include "bytes/test/string_test.h"
 #include "bytes/test/bytes_test.h"
 #include "smtp/test/smtp_message_test.h"
+#include "smtp/test/smtp_message_queue_test.h"
 
 int main(void) {
     int ret;
     CU_pSuite stringSuite = NULL;
     CU_pSuite bytesSuite = NULL;
     CU_pSuite smtpMessageSuite = NULL;
+    CU_pSuite smtpMessageQueueSuite = NULL;
 
     if (CU_initialize_registry() != CUE_SUCCESS) {
         printf("Can't initialize cu_registry\n");
@@ -44,6 +46,16 @@ int main(void) {
         return CU_get_error();
     }
     if ((ret = fillSuiteWithTestsSmtpMessage(smtpMessageSuite)) != CUE_SUCCESS) {
+        CU_cleanup_registry();
+        return ret;
+    }
+
+    smtpMessageQueueSuite = CU_add_suite("SMTP message queue module tests", initSuiteSmtpMessageQueue, cleanupSuiteSmtpMessageQueue);
+    if (!smtpMessageQueueSuite) {
+        CU_cleanup_registry();
+        return CU_get_error();
+    }
+    if ((ret = fillSuiteWithTestsSmtpMessageQueue(smtpMessageQueueSuite)) != CUE_SUCCESS) {
         CU_cleanup_registry();
         return ret;
     }

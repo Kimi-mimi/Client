@@ -74,8 +74,8 @@ client_errors.o: errors/client_errors.h errors/client_errors.c logger/logger.h
 # TEST
 
 test: create_test_dir test.o
-test: string.o bytes.o smtp_message.o
-test: string_test.o bytes_test.o smtp_message_test.o
+test: string.o bytes.o smtp_message.o smtp_message_queue.o
+test: string_test.o bytes_test.o smtp_message_test.o smtp_message_queue_test.o
 	gcc $(C_VER) $(FLAGS) $(CUNIT) -o $(TEST_DIR)/test \
 $(TEST_DIR)/test.o \
 $(BUILD_DIR)/string.o \
@@ -84,6 +84,8 @@ $(BUILD_DIR)/bytes.o \
 $(TEST_DIR)/bytes_test.o \
 $(BUILD_DIR)/smtp_message.o \
 $(TEST_DIR)/smtp_message_test.o \
+$(BUILD_DIR)/smtp_message_queue.o \
+$(TEST_DIR)/smtp_message_queue_test.o \
 
 create_test_dir:
 	mkdir -p $(TEST_DIR)
@@ -101,6 +103,10 @@ string_test.o: bytes/test/string_test.c bytes/test/string_test.h bytes/string.h
 smtp_message_test.o: smtp/test/smtp_message_test.h smtp/test/smtp_message_test.c
 smtp_message_test.o: bytes/string.h smtp/smtp_message.h
 	gcc $(C_VER) $(FLAGS) -c smtp/test/smtp_message_test.c -o $(TEST_DIR)/smtp_message_test.o
+
+smtp_message_queue_test.o: smtp/test/smtp_message_queue_test.h smtp/test/smtp_message_queue_test.c
+smtp_message_queue_test.o: smtp/smtp_message.h smtp/smtp_message_queue.h
+	gcc $(C_VER) $(FLAGS) -c smtp/test/smtp_message_queue_test.c -o $(TEST_DIR)/smtp_message_queue_test.o
 
 # CLEAN
 
