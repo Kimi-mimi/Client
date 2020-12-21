@@ -597,8 +597,7 @@ fsm_do_decided_to_mail_from(
 {
 /*  START == DECIDED TO MAIL FROM == DO NOT CHANGE THIS COMMENT  */
     SMTPConnection *smtpConnection = (SMTPConnection*) connection;
-    smtpMessageDeinit(smtpConnection->currentMessage);
-    smtpConnection->currentMessage = NULL;
+    smtpConnectionClearCurrentMessage(smtpConnection);
     if (smtpConnectionSetCurrentMessage(smtpConnection) < 0) {
         return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
     }

@@ -121,7 +121,7 @@ String *getIpByHost(const String *host, int *port) {
     return ipString;
 }
 
-SMTPConnection *smtpConnectionInitEmpty(const String *domain) {
+SMTPConnection *smtpConnectionInitEmpty(const String *domain, int connect) {
     SMTPConnection *new = NULL;
     String *output = NULL;
     String *input = NULL;
@@ -143,24 +143,26 @@ SMTPConnection *smtpConnectionInitEmpty(const String *domain) {
         errPrint();
         stringDeinit(input);
         stringDeinit(output);
-        smtpConnectionDeinit(new);
+        smtpConnectionDeinit(new, 1);
         return NULL;
     }
 
     new->host = hostIpString;
     new->port = port;
-    socket = smtpConnectionReconnect(new, 0);
-    if (socket < 0) {
-        errPrint();
-        stringDeinit(hostIpString);
-        return NULL;
+    if (connect) {
+        socket = smtpConnectionReconnect(new, 0);
+        if (socket < 0) {
+            errPrint();
+            stringDeinit(hostIpString);
+            return NULL;
+        }
     }
 
     if ((newDomain = stringInitCopy(domain)) == NULL) {
         errPrint();
         stringDeinit(input);
         stringDeinit(output);
-        smtpConnectionDeinit(new);
+        smtpConnectionDeinit(new, 1);
         return NULL;
     }
 
@@ -276,11 +278,11 @@ String *smtpConnectionGetLatestMessageFromReadBuf(SMTPConnection *self, int *exc
     }
 
     bufContainsCrlf = stringContains(self->readBuffer, &crlfString);
-    if (bufContainsCrlf < 0) {
+    if (bufContainsCrlf == STRING_CHAR_NOT_FOUND) {
+        return NULL;
+    } else if (bufContainsCrlf < 0) {
         errPrint();
         *exception = 1;
-        return NULL;
-    } else if (bufContainsCrlf == STRING_CHAR_NOT_FOUND) {
         return NULL;
     }
 
@@ -303,7 +305,7 @@ String *smtpConnectionGetLatestMessageFromReadBuf(SMTPConnection *self, int *exc
     return message;
 }
 
-void smtpConnectionDeinit(SMTPConnection *self) {
+void smtpConnectionDeinit(SMTPConnection *self, int needClose) {
     if (!self)
         return;
 
@@ -313,6 +315,8 @@ void smtpConnectionDeinit(SMTPConnection *self) {
     stringDeinit(self->readBuffer);
     smtpMessageDeinit(self->currentMessage);
     smtpMessageQueueDeinitQueue(self->messageQueue);
-    close(self->socket);
+    if (needClose) {
+        close(self->socket);
+    }
     freeAndNull(self);
 }

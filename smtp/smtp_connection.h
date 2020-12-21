@@ -29,7 +29,7 @@ typedef struct {
 } SMTPConnection;
 
 String *getIpByHost(const String *host, int *port);
-SMTPConnection *smtpConnectionInitEmpty(const String *domain);
+SMTPConnection *smtpConnectionInitEmpty(const String *domain, int connect);
 
 int smtpConnectionReconnect(SMTPConnection *self, int needClose);
 
@@ -42,6 +42,6 @@ int smtpConnectionClearCurrentMessage(SMTPConnection *self);
 
 String *smtpConnectionGetLatestMessageFromReadBuf(SMTPConnection *self, int *exception);
 
-void smtpConnectionDeinit(SMTPConnection *self);
+void smtpConnectionDeinit(SMTPConnection *self, int needClose);
 
 #endif //CLIENT_SMTP_CONNECTION_H
