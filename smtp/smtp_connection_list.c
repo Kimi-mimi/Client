@@ -25,7 +25,7 @@ SMTPConnectionList *smtpConnectionListInitEmptyNode() {
 
 static void deinitSmtpConnectionListNode(SMTPConnectionList *node) {
     node->next = NULL;
-    smtpConnectionDeinit(node->connection);
+    smtpConnectionDeinit(node->connection, 1);
     node->connection = NULL;
     freeAndNull(node);
 }
@@ -67,7 +67,7 @@ SMTPConnectionList *smtpConnectionListAddMessage(SMTPConnectionList *head, const
 
         connToAddMessage = smtpConnectionListGetConnectionWithDomain(head, domains[i]);
         if (!connToAddMessage) {
-            connToAddMessage = smtpConnectionInitEmpty(domains[i]);
+            connToAddMessage = smtpConnectionInitEmpty(domains[i], 1);
             if (!connToAddMessage) {
                 errPrint();
                 newHead = NULL;
@@ -76,7 +76,7 @@ SMTPConnectionList *smtpConnectionListAddMessage(SMTPConnectionList *head, const
 
             newHead = smtpConnectionListAddConnectionToList(newHead, connToAddMessage);
             if (!newHead) {
-                smtpConnectionDeinit(connToAddMessage);
+                smtpConnectionDeinit(connToAddMessage, 1);
                 errPrint();
                 break;
             }
