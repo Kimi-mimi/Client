@@ -57,7 +57,7 @@ te_fsm_state closeConnection(SMTPConnection *connection, void **head, const Stri
     changeState(connection, oldStateName, FSM_ST_CLOSED, newStateName);
     FD_CLR(connection->socket, readFd);
     FD_CLR(connection->socket, writeFd);
-    SMTPConnectionList *newHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(*head, connection->socket);
+    SMTPConnectionList *newHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(*head, connection->socket, 1);
     if (!newHead) {
         // TODO
     }

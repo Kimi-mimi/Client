@@ -8,6 +8,7 @@
 #include "smtp/test/smtp_message_test.h"
 #include "smtp/test/smtp_message_queue_test.h"
 #include "smtp/test/smtp_connection_test.h"
+#include "smtp/test/smtp_connection_list_test.h"
 
 int main(void) {
     int ret;
@@ -16,13 +17,15 @@ int main(void) {
     CU_pSuite smtpMessageSuite = NULL;
     CU_pSuite smtpMessageQueueSuite = NULL;
     CU_pSuite smtpConnectionSuite = NULL;
+    CU_pSuite smtpConnectionListSuite = NULL;
 
     if (CU_initialize_registry() != CUE_SUCCESS) {
         printf("Can't initialize cu_registry\n");
         return CU_get_error();
     }
 
-    bytesSuite = CU_add_suite("Bytes module tests", initSuiteBytes, cleanupSuiteBytes);
+    bytesSuite = CU_add_suite("Bytes module tests",
+                              initSuiteBytes, cleanupSuiteBytes);
     if (!bytesSuite) {
         CU_cleanup_registry();
         return CU_get_error();
@@ -32,7 +35,8 @@ int main(void) {
         return ret;
     }
 
-    stringSuite = CU_add_suite("String module tests", initSuiteString, cleanupSuiteString);
+    stringSuite = CU_add_suite("String module tests",
+                               initSuiteString, cleanupSuiteString);
     if (!stringSuite) {
         CU_cleanup_registry();
         return CU_get_error();
@@ -42,7 +46,8 @@ int main(void) {
         return ret;
     }
 
-    smtpMessageSuite = CU_add_suite("SMTP message module tests", initSuiteSmtpMessage, cleanupSuiteSmtpMessage);
+    smtpMessageSuite = CU_add_suite("SMTP message module tests",
+                                    initSuiteSmtpMessage, cleanupSuiteSmtpMessage);
     if (!smtpMessageSuite) {
         CU_cleanup_registry();
         return CU_get_error();
@@ -52,7 +57,8 @@ int main(void) {
         return ret;
     }
 
-    smtpMessageQueueSuite = CU_add_suite("SMTP message queue module tests", initSuiteSmtpMessageQueue, cleanupSuiteSmtpMessageQueue);
+    smtpMessageQueueSuite = CU_add_suite("SMTP message queue module tests",
+                                         initSuiteSmtpMessageQueue, cleanupSuiteSmtpMessageQueue);
     if (!smtpMessageQueueSuite) {
         CU_cleanup_registry();
         return CU_get_error();
@@ -62,12 +68,24 @@ int main(void) {
         return ret;
     }
 
-    smtpConnectionSuite = CU_add_suite("SMTP connection module tests", initSuiteSmtpConnection, cleanupSuiteSmtpConnection);
+    smtpConnectionSuite = CU_add_suite("SMTP connection module tests",
+                                       initSuiteSmtpConnection, cleanupSuiteSmtpConnection);
     if (!smtpConnectionSuite) {
         CU_cleanup_registry();
         return CU_get_error();
     }
     if ((ret = fillSuiteWithTestsSmtpConnection(smtpConnectionSuite)) != CUE_SUCCESS) {
+        CU_cleanup_registry();
+        return ret;
+    }
+
+    smtpConnectionListSuite = CU_add_suite("SMTP connection list module tests",
+                                           initSuiteSmtpConnectionList, cleanupSuiteSmtpConnectionList);
+    if (!smtpConnectionListSuite) {
+        CU_cleanup_registry();
+        return CU_get_error();
+    }
+    if ((ret = fillSuiteWithTestsSmtpConnectionList(smtpConnectionListSuite)) != CUE_SUCCESS) {
         CU_cleanup_registry();
         return ret;
     }

@@ -23,9 +23,9 @@ SMTPConnectionList *smtpConnectionListInitEmptyNode() {
     return new;
 }
 
-static void deinitSmtpConnectionListNode(SMTPConnectionList *node) {
+static void deinitSmtpConnectionListNode(SMTPConnectionList *node, int needClose) {
     node->next = NULL;
-    smtpConnectionDeinit(node->connection, 1);
+    smtpConnectionDeinit(node->connection, needClose);
     node->connection = NULL;
     freeAndNull(node);
 }
@@ -121,7 +121,7 @@ SMTPConnectionList *smtpConnectionListAddConnectionToList(SMTPConnectionList *he
     return head;
 }
 
-SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPConnectionList *head, int socket) {
+SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPConnectionList *head, int socket, int needClose) {
     if (!head)
         return NULL;
 
@@ -131,7 +131,7 @@ SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPCo
 
     if (head->connection && head->connection->socket == socket) {
         newHead = head->next;
-        deinitSmtpConnectionListNode(head);
+        deinitSmtpConnectionListNode(head, needClose);
         head = NULL;
         return newHead;
     }
@@ -139,7 +139,7 @@ SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPCo
     while (cur) {
         if (cur->connection && cur->connection->socket == socket) {
             prev->next = cur->next;
-            deinitSmtpConnectionListNode(cur);
+            deinitSmtpConnectionListNode(cur, needClose);
             cur = NULL;
             return newHead;
         }
@@ -150,12 +150,12 @@ SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPCo
     return newHead;
 }
 
-void smtpConnectionListDeinitList(SMTPConnectionList *head) {
+void smtpConnectionListDeinitList(SMTPConnectionList *head, int needClose) {
     SMTPConnectionList *cur;
 
     while (head) {
         cur = head;
         head = head->next;
-        deinitSmtpConnectionListNode(cur);
+        deinitSmtpConnectionListNode(cur, needClose);
     }
 }

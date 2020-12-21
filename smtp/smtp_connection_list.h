@@ -20,8 +20,8 @@ SMTPConnection *smtpConnectionListGetConnectionWithDomain(SMTPConnectionList *he
 SMTPConnectionList *smtpConnectionListAddMessage(SMTPConnectionList *head, const SMTPMessage *message, int ignoreKimiMimi);
 
 SMTPConnectionList *smtpConnectionListAddConnectionToList(SMTPConnectionList *head, SMTPConnection *conn);
-SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPConnectionList *head, int socket);
+SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPConnectionList *head, int socket, int needClose);
 
-void smtpConnectionListDeinitList(SMTPConnectionList *head);
+void smtpConnectionListDeinitList(SMTPConnectionList *head, int needClose);
 
 #endif //CLIENT_SMTP_CONNECTION_LIST_H

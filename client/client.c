@@ -149,7 +149,7 @@ int clientMain() {
                 break;
             } else {
                 errno = CERR_SELECT;
-                smtpConnectionListDeinitList(connectionListHead);
+                smtpConnectionListDeinitList(connectionListHead, 1);
                 return -1;
             }
         }
@@ -226,6 +226,6 @@ int clientMain() {
         }
     }
 
-    smtpConnectionListDeinitList(connectionListHead);
+    smtpConnectionListDeinitList(connectionListHead, 1);
     return 0;
 }

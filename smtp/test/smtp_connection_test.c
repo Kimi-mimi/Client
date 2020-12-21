@@ -16,19 +16,19 @@ static const String emptyStr = EMPTY_STRING_INITIALIZER;
 #define messageInReadBuf2WithCRLF       messageInReadBuf2 CRLF
 #define messageInWriteBuf               "Message in write buf" CRLF
 
-        SMTPConnection *getDummyConnection() {
-            String *domainStr = NULL;
-            String *read1Str = NULL;
-            String *read2Str = NULL;
-            String *writeStr = NULL;
-            SMTPMessage *m1 = NULL;
-            SMTPMessage *m2 = NULL;
-            SMTPMessageQueue *q1 = NULL;
-            SMTPMessageQueue *q2 = NULL;
-            SMTPConnection *ans = NULL;
+static SMTPConnection *getDummyConnection() {
+    String *domainStr = NULL;
+    String *read1Str = NULL;
+    String *read2Str = NULL;
+    String *writeStr = NULL;
+    SMTPMessage *m1 = NULL;
+    SMTPMessage *m2 = NULL;
+    SMTPMessageQueue *q1 = NULL;
+    SMTPMessageQueue *q2 = NULL;
+    SMTPConnection *ans = NULL;
 
-            if ((domainStr = stringInitFromStringBuf(domain)) == NULL ||
-                (read1Str = stringInitFromStringBuf(messageInReadBuf1WithCRLF)) == NULL ||
+    if ((domainStr = stringInitFromStringBuf(domain)) == NULL ||
+            (read1Str = stringInitFromStringBuf(messageInReadBuf1WithCRLF)) == NULL ||
             (read2Str = stringInitFromStringBuf(messageInReadBuf2WithCRLF)) == NULL ||
             (writeStr = stringInitFromStringBuf(messageInWriteBuf)) == NULL ||
             (m1 = smtpMessageInit()) == NULL ||
