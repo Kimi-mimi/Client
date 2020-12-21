@@ -7,18 +7,6 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
-    runs-on: macos-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    
-    - name: clean
-      run: make clean
-      
-    - name: make
-      run: make
-  
   test:
     runs-on: macos-latest
 
@@ -31,8 +19,8 @@ jobs:
     - name: clean
       run: make clean
       
-    - name: make_test
-      run: make test
+    - name: make
+      run: make
       
     - name: test
       run: build/test/test
