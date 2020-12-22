@@ -249,8 +249,8 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_SENDING_MESSAGE, fsm_do_send_bytes },  /* EVT:  SEND_BYTES */
     { FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT, fsm_do_message_success_decide_to_mail_from_or_quit }, /* EVT:  GOOD_RESPONSE */
-    { FSM_ST_SENDING_RSET, fsm_do_message_bad_decide_to_mail_from_or_quit }, /* EVT:  BAD_RESPONSE */
-    { FSM_ST_SENDING_RSET, fsm_do_message_unreadable_decide_to_mail_from_or_quit }, /* EVT:  UNREADABLE_RESPONSE */
+    { FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT, fsm_do_message_bad_decide_to_mail_from_or_quit }, /* EVT:  BAD_RESPONSE */
+    { FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT, fsm_do_message_unreadable_decide_to_mail_from_or_quit }, /* EVT:  UNREADABLE_RESPONSE */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_RCPT_TO */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_DATA */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  NEED_MAIL_FROM */
@@ -443,6 +443,9 @@ fsm_do_connect_bad(
                    smtpConnection->domain,
                    response,
                    "connect");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     return closeConnection(connection, head, response, readFdSet, writeFdSet,
                            FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
 /*  END   == CONNECT BAD == DO NOT CHANGE THIS COMMENT  */
@@ -465,6 +468,9 @@ fsm_do_connect_success(
                     smtpConnection->domain,
                     response,
                     "connect");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next,  FSM_STATE_NAME(maybe_next));
     String *heloCommand = getHELOCommand();
     if (!heloCommand || stringConcat(smtpConnection->writeBuffer, heloCommand) < 0) {
@@ -533,6 +539,9 @@ fsm_do_data_success(
                     smtpConnection->domain,
                     response,
                     "DATA");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     String *message = stringInitCopy(smtpConnection->currentMessage->data);
     if (!message || stringConcat(smtpConnection->writeBuffer, message) < 0) {
@@ -673,6 +682,9 @@ fsm_do_helo_bad(
                    smtpConnection->domain,
                    response,
                    "HELO");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     return closeConnection(connection, head, response, readFdSet, writeFdSet,
                            FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
 /*  END   == HELO BAD == DO NOT CHANGE THIS COMMENT  */
@@ -695,6 +707,9 @@ fsm_do_helo_success_decide_mail_from_or_quit(
                     smtpConnection->domain,
                     response,
                     "HELO");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     return decideMailFromOrQuit(smtpConnection, head, response, readFdSet, writeFdSet);
 /*  END   == HELO SUCCESS DECIDE MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
@@ -827,6 +842,9 @@ fsm_do_mail_from_bad_decide_mail_from_or_quit(
                    smtpConnection->domain,
                    response,
                    "MAIL FROM");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     return decideMailFromOrQuit(smtpConnection, head, response, readFdSet, writeFdSet);
 /*  END   == MAIL FROM BAD DECIDE MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
@@ -849,6 +867,9 @@ fsm_do_mail_from_success_decide_rcpt_to_or_data(
                     smtpConnection->domain,
                     response,
                     "MAIL FROM");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     return decideRcptOrData(connection, head, response, readFdSet, writeFdSet);
 /*  END   == MAIL FROM SUCCESS DECIDE RCPT TO OR DATA == DO NOT CHANGE THIS COMMENT  */
@@ -893,6 +914,9 @@ fsm_do_message_bad_decide_to_mail_from_or_quit(
                    smtpConnection->domain,
                    response,
                    "message");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     return decideMailFromOrQuit(connection, head, response, readFdSet, writeFdSet);
 /*  END   == MESSAGE BAD DECIDE TO MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
@@ -915,6 +939,9 @@ fsm_do_message_success_decide_to_mail_from_or_quit(
                     smtpConnection->domain,
                     response,
                     "message");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     return decideMailFromOrQuit(smtpConnection, head, response, readFdSet, writeFdSet);
 /*  END   == MESSAGE SUCCESS DECIDE TO MAIL FROM OR QUIT == DO NOT CHANGE THIS COMMENT  */
@@ -959,6 +986,9 @@ fsm_do_quit_bad(
                    smtpConnection->domain,
                    response,
                    "QUIT");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     return closeConnection(connection, head, response, readFdSet, writeFdSet,
                            FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
 /*  END   == QUIT BAD == DO NOT CHANGE THIS COMMENT  */
@@ -981,6 +1011,9 @@ fsm_do_quit_success(
                     smtpConnection->domain,
                     response,
                     "QUIT");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     return closeConnection(connection, head, response, readFdSet, writeFdSet,
                            FSM_STATE_NAME(initial), FSM_STATE_NAME(maybe_next));
 /*  END   == QUIT SUCCESS == DO NOT CHANGE THIS COMMENT  */
@@ -1025,6 +1058,9 @@ fsm_do_rcpt_to_bad_decide_rcpt_to_or_data(
                    smtpConnection->domain,
                    response,
                    "RCPT TO");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     return decideRcptOrData(smtpConnection, head, response, readFdSet, writeFdSet);
 /*  END   == RCPT TO BAD DECIDE RCPT TO OR DATA == DO NOT CHANGE THIS COMMENT  */
@@ -1047,6 +1083,9 @@ fsm_do_rcpt_to_success_decide_rcpt_to_or_data(
                     smtpConnection->domain,
                     response,
                     "RCPT TO");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     return decideRcptOrData(smtpConnection, head, response, readFdSet, writeFdSet);
 /*  END   == RCPT TO SUCCESS DECIDE RCPT TO OR DATA == DO NOT CHANGE THIS COMMENT  */
@@ -1086,6 +1125,9 @@ fsm_do_rset_bad_decide_to_reconnect_or_close(
                    smtpConnection->domain,
                    response,
                    "RSET");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     return decideReconnectOrClose(connection, head, response, readFdSet, writeFdSet);
 /*  END   == RSET BAD DECIDE TO RECONNECT OR CLOSE == DO NOT CHANGE THIS COMMENT  */
@@ -1108,6 +1150,9 @@ fsm_do_rset_success_decide_to_mail_to_or_quit(
                     smtpConnection->domain,
                     response,
                     "RSET");
+    if (!checkIsFinalMessage(response)) {
+        return initial;
+    }
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     return decideMailFromOrQuit(connection, head, response, readFdSet, writeFdSet);
 /*  END   == RSET SUCCESS DECIDE TO MAIL TO OR QUIT == DO NOT CHANGE THIS COMMENT  */

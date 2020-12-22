@@ -79,14 +79,16 @@ static String *getRecordForHost(const String *host, int type) {
     return recordString;
 }
 
-String *getIpByHost(const String *host, int *port) {
-    String *local = stringInitFromStringBuf("127.0.0.1");
-    if (!local) {
-        errPrint();
-        return NULL;
+String *getIpByHost(const String *host, int *port, int needConnect) {
+    if (!needConnect) {
+        String *local = stringInitFromStringBuf("127.0.0.1");
+        if (!local) {
+            errPrint();
+            return NULL;
+        }
+        *port = 25;
+        return local;
     }
-    *port = 25;
-    return local;
 
     const String kimiMimiHostNameString = SERVER_HOST_STRING_INITIALIZER;
     String *mxString = NULL;
@@ -130,7 +132,7 @@ SMTPConnection *smtpConnectionInitEmpty(const String *domain, int connect) {
     int port;
     int socket;
 
-    hostIpString = getIpByHost(domain, &port);
+    hostIpString = getIpByHost(domain, &port, connect);
     if (!hostIpString) {
         errPrint();
         return NULL;

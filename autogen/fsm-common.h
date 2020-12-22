@@ -10,6 +10,8 @@
 #include "../smtp/smtp_connection_list.h"
 #include "../smtp/smtp_connection.h"
 
+int checkIsFinalMessage(const String *response);
+
 void changeState(SMTPConnection* connection, const char* oldStateName, te_fsm_state newState, const char* newStateName);
 
 te_fsm_state responseBadAndNeedRset(SMTPConnection* connection, void **head, const String *response,

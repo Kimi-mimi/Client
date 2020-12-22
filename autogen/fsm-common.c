@@ -7,6 +7,13 @@
 #include "../smtp/smtp_command.h"
 #include "../logger/logger.h"
 
+int checkIsFinalMessage(const String *response) {
+    if (response->count < 4) {
+        return 0;
+    }
+    return response->buf[3] == ' ';
+}
+
 void changeState(SMTPConnection* connection, const char* oldStateName, te_fsm_state newState, const char* newStateName) {
     logChangeState(connection->socket,
                    connection->domain,
@@ -38,6 +45,9 @@ te_fsm_state responseBadAndNeedRset(SMTPConnection* connection, void **head, con
                    connection->domain,
                    response,
                    command);
+    if (!checkIsFinalMessage(response)) {
+        return connection->connState;
+    }
     return needRset(connection, head, response, readFd, writeFd, oldStateName, newStateName);
 }
 

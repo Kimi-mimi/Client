@@ -77,7 +77,7 @@ client_errors.o: errors/client_errors.h errors/client_errors.c logger/logger.h
 test: string.o bytes.o smtp_message.o smtp_message_queue.o smtp_connection.o smtp_connection_list.o
 test: string_test.o bytes_test.o smtp_message_test.o smtp_message_queue_test.o smtp_connection_test.o smtp_connection_list_test.o
 test: create_test_dir test.o
-	gcc $(C_VER) $(FLAGS) $(CUNIT) -o $(TEST_DIR)/test \
+	gcc $(C_VER) $(FLAGS) $(CUNIT) $(LIBS) -o $(TEST_DIR)/test \
 $(TEST_DIR)/test.o \
 $(BUILD_DIR)/string.o \
 $(TEST_DIR)/string_test.o \

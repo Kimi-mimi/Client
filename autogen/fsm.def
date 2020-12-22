@@ -79,8 +79,8 @@ transition =
 
 transition =
 { tst = sending_message;            tev = good_response;                next = need_to_mail_from_or_quit;   ttype = message_success_decide_to_mail_from_or_quit; },
-{ tst = sending_message;            tev = bad_response;                 next = sending_rset;                ttype = message_bad_decide_to_mail_from_or_quit; },
-{ tst = sending_message;            tev = unreadable_response;          next = sending_rset;                ttype = message_unreadable_decide_to_mail_from_or_quit; },
+{ tst = sending_message;            tev = bad_response;                 next = need_to_mail_from_or_quit;   ttype = message_bad_decide_to_mail_from_or_quit; },
+{ tst = sending_message;            tev = unreadable_response;          next = need_to_mail_from_or_quit;   ttype = message_unreadable_decide_to_mail_from_or_quit; },
 { tst = sending_message;            tev = send_bytes;                   next = sending_message;             ttype = send_bytes; };
 
 transition =

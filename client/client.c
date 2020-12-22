@@ -92,6 +92,7 @@ static void intHandler(int signal) {
 int clientMain() {
     fd_set activeReadFdSet, activeWriteFdSet;           // Главные множества дескрипторов для select
     fd_set readFdSet, writeFdSet;                       // Множеста дескрипторов для select
+    struct timeval selectTimeout;                       // Таймаут селекта
     SMTPConnection *currentConnection = NULL;           // Обрабатываемое подключение
     SMTPConnectionList *connectionListHead = NULL;      // Список подключений
     SMTPConnectionList *tmpConnectionListHead = NULL;   // Временный список подключений
@@ -143,8 +144,10 @@ int clientMain() {
 
         readFdSet = activeReadFdSet;
         writeFdSet = activeWriteFdSet;
+        selectTimeout.tv_sec = 1;
+        selectTimeout.tv_usec = 0;
 
-        if (select(FD_SETSIZE, &readFdSet, &writeFdSet, NULL, NULL) < 0) {
+        if (select(FD_SETSIZE, &readFdSet, &writeFdSet, NULL, &selectTimeout) < 0) {
             if (errno == EINTR) {
                 break;
             } else {

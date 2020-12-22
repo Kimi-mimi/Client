@@ -28,7 +28,7 @@ typedef struct {
 
 } SMTPConnection;
 
-String *getIpByHost(const String *host, int *port);
+String *getIpByHost(const String *host, int *port, int needConnect);
 SMTPConnection *smtpConnectionInitEmpty(const String *domain, int connect);
 
 int smtpConnectionReconnect(SMTPConnection *self, int needClose);
