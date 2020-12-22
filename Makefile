@@ -7,8 +7,9 @@ TEST_DIR := $(BUILD_DIR)/test
 
 all: create_build_dir main create_test_dir test
 
-main: create_build_dir main.o client.o client_errors.o logger.o smtp_command.o smtp_message.o
+main: client.o client_errors.o logger.o smtp_command.o smtp_message.o
 main: smtp_connection.o smtp_connection_list.o smtp_message_queue.o fsm_common.o fsm.o string.o bytes.o
+main: create_build_dir main.o
 	gcc $(C_VER) $(FLAGS) $(LIBS) -o $(BUILD_DIR)/main \
 $(BUILD_DIR)/main.o \
 $(BUILD_DIR)/client.o \
@@ -73,9 +74,9 @@ client_errors.o: errors/client_errors.h errors/client_errors.c logger/logger.h
 
 # TEST
 
-test: create_test_dir test.o
 test: string.o bytes.o smtp_message.o smtp_message_queue.o smtp_connection.o smtp_connection_list.o
 test: string_test.o bytes_test.o smtp_message_test.o smtp_message_queue_test.o smtp_connection_test.o smtp_connection_list_test.o
+test: create_test_dir test.o
 	gcc $(C_VER) $(FLAGS) $(CUNIT) -o $(TEST_DIR)/test \
 $(TEST_DIR)/test.o \
 $(BUILD_DIR)/string.o \
