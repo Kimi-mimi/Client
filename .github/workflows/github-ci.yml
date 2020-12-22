@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  test:
+  build:
     runs-on: macos-latest
 
     steps:
@@ -21,6 +21,21 @@ jobs:
       
     - name: make
       run: make
+  
+  test:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: install_cunit_macOS
+      run: brew install cunit
+    
+    - name: clean
+      run: make clean
+      
+    - name: make-test
+      run: make test
       
     - name: test
       run: build/test/test
