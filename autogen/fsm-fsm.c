@@ -478,7 +478,7 @@ fsm_do_connect_success(
         return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
     }
     stringDeinit(heloCommand);
-    FD_SET(smtpConnection->socket, writeFdSet);
+    FD_SET(smtpConnection->socket, (struct fd_set*) writeFdSet);
     return maybe_next;
 /*  END   == CONNECT SUCCESS == DO NOT CHANGE THIS COMMENT  */
 }
@@ -549,7 +549,7 @@ fsm_do_data_success(
         return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
     }
     stringDeinit(message);
-    FD_SET(smtpConnection->socket, writeFdSet);
+    FD_SET(smtpConnection->socket, (struct fd_set*) writeFdSet);
     return maybe_next;
 /*  END   == DATA SUCCESS == DO NOT CHANGE THIS COMMENT  */
 }
@@ -817,7 +817,7 @@ fsm_do_log_decided_to_reconnect(
                  smtpConnection->domain,
                  "reconnect");
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
-    FD_CLR(smtpConnection->socket, writeFdSet);
+    FD_CLR(smtpConnection->socket, (struct fd_set*) writeFdSet);
     if (smtpConnectionReconnect(smtpConnection, 1) < 0) {
         return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
     }
@@ -1194,7 +1194,7 @@ fsm_do_send_bytes(
 /*  START == SEND BYTES == DO NOT CHANGE THIS COMMENT  */
     SMTPConnection *smtpConnection = (SMTPConnection*) connection;
     if (!smtpConnectionIsNeedToWrite(connection)) {
-        FD_CLR(smtpConnection->socket, writeFdSet);
+        FD_CLR(smtpConnection->socket, (struct fd_set*) writeFdSet);
     } else {
         changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     }

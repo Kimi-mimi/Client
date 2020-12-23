@@ -53,3 +53,10 @@ dkms.conf
 
 build/
 *.idea
+tex/include
+simplest.mk
+*.log
+*.pdf
+*.aux
+*.dot
+*.toc
