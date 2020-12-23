@@ -1,22 +1,37 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <signal.h>
 #include "client/client.h"
 #include "logger/logger.h"
 #include "errors/client_errors.h"
 
 
-int main(void) {
+int main(int argc, char *argv[]) {
     pid_t loggerPid;
     int clientExitStatus;
+    int loopback;
 //    int loggerExitStatus = 0;
+
+    if (argc != 3) {
+        printf("Usage: main [no-loopback/loopback]\n");
+        return 1;
+    }
+    if (strcmp(argv[2], "loopback") == 0) {
+        loopback = 1;
+    } else if (strcmp(argv[2], "no-loopback") == 0) {
+        loopback = 0;
+    } else  {
+        printf("Usage: main [no-loopback/loopback]\n");
+        return 1;
+    }
 
     printf("Client is starting...\n");
 
     loggerPid = loggerMain();
     printf("Logger pid = %d\n", loggerPid);
 
-    clientExitStatus = clientMain();
+    clientExitStatus = clientMain(loopback);
     printf("Client exited with status %d\n", clientExitStatus);
     if (clientExitStatus) {
         errPrint();

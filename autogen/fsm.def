@@ -32,7 +32,7 @@ event  = connection_closed_by_remote, internal_error,
 
 transition =
 { tst = '*';                        tev = internal_error;               next = need_to_reconnect_or_close;  ttype = internal_error_decide_to_reconnect_or_close; },
-{ tst = '*';                        tev = connection_closed_by_remote;  next = closing;                     ttype = closed_by_remote; };
+{ tst = '*';                        tev = connection_closed_by_remote;  next = closed;                     ttype = closed_by_remote; };
 
 transition =
 { tst = connecting;                 tev = good_response;                next = sending_helo;                ttype = connect_success; },

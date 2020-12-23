@@ -125,7 +125,7 @@ static const t_fsm_transition
 fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
 
   /* STATE 0:  FSM_ST_INIT */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  GOOD_RESPONSE */
@@ -140,7 +140,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 1:  FSM_ST_CLOSING */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  GOOD_RESPONSE */
@@ -155,7 +155,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 2:  FSM_ST_CLOSED */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  GOOD_RESPONSE */
@@ -170,7 +170,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 3:  FSM_ST_CONNECTING */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_SENDING_HELO, fsm_do_connect_success }, /* EVT:  GOOD_RESPONSE */
@@ -185,7 +185,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 4:  FSM_ST_SENDING_HELO */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_SENDING_HELO, fsm_do_send_bytes },     /* EVT:  SEND_BYTES */
     { FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT, fsm_do_helo_success_decide_mail_from_or_quit }, /* EVT:  GOOD_RESPONSE */
@@ -200,7 +200,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 5:  FSM_ST_SENDING_MAIL_FROM */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_SENDING_MAIL_FROM, fsm_do_send_bytes }, /* EVT:  SEND_BYTES */
     { FSM_ST_NEED_TO_RCPT_TO_OR_DATA, fsm_do_mail_from_success_decide_rcpt_to_or_data }, /* EVT:  GOOD_RESPONSE */
@@ -215,7 +215,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 6:  FSM_ST_SENDING_RCPT_TO */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_SENDING_RCPT_TO, fsm_do_send_bytes },  /* EVT:  SEND_BYTES */
     { FSM_ST_NEED_TO_RCPT_TO_OR_DATA, fsm_do_rcpt_to_success_decide_rcpt_to_or_data }, /* EVT:  GOOD_RESPONSE */
@@ -230,7 +230,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 7:  FSM_ST_SENDING_DATA */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_SENDING_DATA, fsm_do_send_bytes },     /* EVT:  SEND_BYTES */
     { FSM_ST_SENDING_MESSAGE, fsm_do_data_success }, /* EVT:  GOOD_RESPONSE */
@@ -245,7 +245,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 8:  FSM_ST_SENDING_MESSAGE */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_SENDING_MESSAGE, fsm_do_send_bytes },  /* EVT:  SEND_BYTES */
     { FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT, fsm_do_message_success_decide_to_mail_from_or_quit }, /* EVT:  GOOD_RESPONSE */
@@ -260,7 +260,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 9:  FSM_ST_SENDING_RSET */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_SENDING_RSET, fsm_do_send_bytes },     /* EVT:  SEND_BYTES */
     { FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT, fsm_do_rset_success_decide_to_mail_to_or_quit }, /* EVT:  GOOD_RESPONSE */
@@ -275,7 +275,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 10:  FSM_ST_SENDING_QUIT */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_SENDING_QUIT, fsm_do_send_bytes },     /* EVT:  SEND_BYTES */
     { FSM_ST_CLOSED, fsm_do_quit_success },         /* EVT:  GOOD_RESPONSE */
@@ -290,7 +290,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 11:  FSM_ST_NEED_TO_RCPT_TO_OR_DATA */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  GOOD_RESPONSE */
@@ -305,7 +305,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 12:  FSM_ST_NEED_TO_MAIL_FROM_OR_QUIT */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  GOOD_RESPONSE */
@@ -320,7 +320,7 @@ fsm_trans_table[ FSM_STATE_CT ][ FSM_EVENT_CT ] = {
   },
 
   /* STATE 13:  FSM_ST_NEED_TO_RECONNECT_OR_CLOSE */
-  { { FSM_ST_CLOSING, fsm_do_closed_by_remote },    /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
+  { { FSM_ST_CLOSED, fsm_do_closed_by_remote },     /* EVT:  CONNECTION_CLOSED_BY_REMOTE */
     { FSM_ST_NEED_TO_RECONNECT_OR_CLOSE, fsm_do_internal_error_decide_to_reconnect_or_close }, /* EVT:  INTERNAL_ERROR */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  SEND_BYTES */
     { FSM_ST_INVALID, fsm_do_invalid },             /* EVT:  GOOD_RESPONSE */

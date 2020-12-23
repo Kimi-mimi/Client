@@ -89,7 +89,7 @@ static void intHandler(int signal) {
     closeProgram = 1;
 }
 
-int clientMain() {
+int clientMain(int needLoopback) {
     fd_set activeReadFdSet, activeWriteFdSet;           // Главные множества дескрипторов для select
     fd_set readFdSet, writeFdSet;                       // Множеста дескрипторов для select
     struct timeval selectTimeout;                       // Таймаут селекта
@@ -102,6 +102,7 @@ int clientMain() {
     String *outputString = NULL;                        // Строка для вывода на экран (логгер)
     int exception = 0;                                  // Переменная для хранения ошибки
     int responseCode = -1;                              // Код ответа сервера
+    const char* mailDir = needLoopback ? MAILS_DIR_LOOPBACK : MAILS_DIR_NO_LOOPBACK;
 
     signal(SIGINT, intHandler);
     signal(SIGTERM, intHandler);
@@ -112,13 +113,13 @@ int clientMain() {
     FD_ZERO(&writeFdSet);
 
     while(!closeProgram) {
-        messagesFromDir = smtpMessageInitFromDir(MAILS_DIR, &messagesFromDirLen);
+        messagesFromDir = smtpMessageInitFromDir(mailDir, &messagesFromDirLen);
         if (messagesFromDirLen < 0) {
             errPrint();
-            printf("Ошибка в чтении сообщений из директории %s", MAILS_DIR);
+            printf("Ошибка в чтении сообщений из директории %s", mailDir);
         } else if (messagesFromDirLen > 0) {
             for (int i = 0; i < messagesFromDirLen; i++) {
-                tmpConnectionListHead = smtpConnectionListAddMessage(connectionListHead, messagesFromDir[i], 1);
+                tmpConnectionListHead = smtpConnectionListAddMessage(connectionListHead, messagesFromDir[i], !needLoopback);
                 if (!tmpConnectionListHead) {
                     errPrint();
                     continue;
