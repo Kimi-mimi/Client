@@ -20,6 +20,7 @@ SERVER_
  free()
  FD_ZERO()
  FD_ISSET()
+ FD_SET()
  recv()
  atoi()
  memset()
