@@ -14,6 +14,7 @@
 #define SERVER_HOST                         "kimi-mimi.ru"  // Хост сервера
 #define SERVER_HOST_STRING_INITIALIZER      { .buf = SERVER_HOST, .count = 12, .capacity = 12, };
 
+
 typedef struct {
     int socket;                             // Дескриптор сокета
     SMTPMessageQueue *messageQueue;         // Очередь сообщений для подключения

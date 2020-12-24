@@ -23,6 +23,9 @@ CFLOW2DOT = $(UDIR)/cflow2dot
 SIMPLECFLOW = grep -v -f cflow.ignore
 SRC2TEX = $(UDIR)/src2tex
 PDFLATEX = pdflatex -interaction=nonstopmode
+DOXYGEN = doxygen
+
+DOXYGEN_CONF_FILE = doxygen.cfg
 
 REPORT_PDF_FILE = report.pdf
 FSM_FILE = autogen/fsm.def
@@ -199,8 +202,14 @@ $(MAKEFILE_TEX_FILE): $(MAKEFILE_DOT_FILE)
 $(MAKEFILE_PDF_FILE): $(MAKEFILE_TEX_FILE)
 	$(PDFLATEX) -output-directory $(TEXINCDIR) $<
 
+doxygen: $(DOXYGEN_CONF_FILE)
+	$(DOXYGEN) $(DOXYGEN_CONF_FILE)
+
+doxygen_pdf: doxygen
+	cd tex/include/doxygen/latex && make && cd ../../../../
+
 # report itself
-$(REPORT_PDF_FILE): $(FSM_PDF_FILE) $(CFLOW_PDF_FILE) $(MAKEFILE_PDF_FILE)
+$(REPORT_PDF_FILE): $(FSM_PDF_FILE) $(CFLOW_PDF_FILE) $(MAKEFILE_PDF_FILE) doxygen_pdf
 	cd $(TEXDIR) && $(PDFLATEX) report.tex && $(PDFLATEX) report.tex && cp $(REPORT_PDF_FILE) ..
 	#echo 1
 

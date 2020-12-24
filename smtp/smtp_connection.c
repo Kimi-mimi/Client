@@ -2,6 +2,11 @@
 // Created by Dmitry Gorin on 21.11.2020.
 //
 
+/**
+ * @file smtp_connection.c
+ * @brief SMTP-подключение
+ */
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <resolv.h>
@@ -15,6 +20,12 @@
 #include "smtp_message.h"
 #include "smtp_connection.h"
 
+/**
+ * Получение DNS-записи для хоста
+ * @param host Хост
+ * @param type Тип DNS-записи
+ * @return Первая DNS-запись
+ */
 static String *getRecordForHost(const String *host, int type) {
     String *recordString = NULL;
     String *rowString = NULL;
@@ -79,6 +90,13 @@ static String *getRecordForHost(const String *host, int type) {
     return recordString;
 }
 
+/**
+ * Получение IP-адреса почтового сервера
+ * @param host Хост
+ * @param port Порт
+ * @param needConnect Нужно ли делать DNS-запрос (если нет, то вернется 127.0.0.1)
+ * @return IP-адрес почтового сервера. и установка порта
+ */
 String *getIpByHost(const String *host, int *port, int needConnect) {
     if (!needConnect) {
         String *local = stringInitFromStringBuf("127.0.0.1");
@@ -123,6 +141,12 @@ String *getIpByHost(const String *host, int *port, int needConnect) {
     return ipString;
 }
 
+/**
+ * Создание структуры SMTP-подключения
+ * @param domain Домен, к которому нужно подключиться
+ * @param connect Нужно ли подключаться через connect()
+ * @return SMTP-подключение
+ */
 SMTPConnection *smtpConnectionInitEmpty(const String *domain, int connect) {
     SMTPConnection *new = NULL;
     String *output = NULL;
@@ -179,6 +203,12 @@ SMTPConnection *smtpConnectionInitEmpty(const String *domain, int connect) {
     return new;
 }
 
+/**
+ * Переподключение сокета в SMTP-соединении
+ * @param self SMTP-соединение
+ * @param needClose Нужно ли закрывать текущее подключение на сокете
+ * @return Дескриптор сокета
+ */
 int smtpConnectionReconnect(SMTPConnection *self, int needClose) {
     int sock;
     struct sockaddr_in serverAddress;
@@ -213,14 +243,30 @@ int smtpConnectionReconnect(SMTPConnection *self, int needClose) {
     return sock;
 }
 
+/**
+ * Предикат необходимости записи в сокет
+ * @param self SMTP-подключение
+ * @return Нужно или нет писать в сокет
+ */
 int smtpConnectionIsNeedToWrite(const SMTPConnection *self) {
     return self && self->writeBuffer && self->writeBuffer->count;
 }
 
+/**
+ * Предикат наличия сообщений для отправки в SMTP-подключение
+ * @param self SMTP-подключение
+ * @return Есть или нет письма в очереди на отправку
+ */
 int smtpConnectionIsHaveMoreMessages(const SMTPConnection *self) {
     return self && self->messageQueue;
 }
 
+/**
+ * Добавление письма в очередь на отправку
+ * @param self SMTP-подключение
+ * @param message SMTP-сообщение
+ * @return Код ошибки (0 -- успех)
+ */
 int smtpConnectionPushMessage(SMTPConnection *self, SMTPMessage *message) {
     SMTPMessageQueue *newHead;
 
@@ -238,6 +284,11 @@ int smtpConnectionPushMessage(SMTPConnection *self, SMTPMessage *message) {
     return 0;
 }
 
+/**
+ * Установка нового письма на отправку из очереди
+ * @param self SMTP-подкоючение
+ * @return Код ошибки (0 -- успех)
+ */
 int smtpConnectionSetCurrentMessage(SMTPConnection *self) {
     SMTPMessage *newCurrent = NULL;
     SMTPMessageQueue *newHead = NULL;
@@ -253,6 +304,11 @@ int smtpConnectionSetCurrentMessage(SMTPConnection *self) {
     return 0;
 }
 
+/**
+ * Очистка текущего SMTP-сообщения
+ * @param self SMTP-подключение
+ * @return Код ошибки (0 -- успех)
+ */
 int smtpConnectionClearCurrentMessage(SMTPConnection *self) {
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;
@@ -265,6 +321,12 @@ int smtpConnectionClearCurrentMessage(SMTPConnection *self) {
     return 0;
 }
 
+/**
+ * Получение самого старого сообщения из полученных через SMTP-подключение (через readBuffer)
+ * @param self SMTP-подключение
+ * @param exception Код ошибки (0 -- успех)
+ * @return Строка самого старого сообщения
+ */
 String *smtpConnectionGetLatestMessageFromReadBuf(SMTPConnection *self, int *exception) {
     String *message = NULL;
     String crlfString = CRLF_STRING_INITIALIZER;
@@ -307,6 +369,11 @@ String *smtpConnectionGetLatestMessageFromReadBuf(SMTPConnection *self, int *exc
     return message;
 }
 
+/**
+ * Деструктор SMTP-подключения
+ * @param self SMTP-подключение
+ * @param needClose Нужно ли закрывать сокет
+ */
 void smtpConnectionDeinit(SMTPConnection *self, int needClose) {
     if (!self)
         return;

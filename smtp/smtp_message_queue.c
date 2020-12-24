@@ -2,6 +2,11 @@
 // Created by Dmitry Gorin on 04.12.2020.
 //
 
+/**
+ * @file smtp_message_queue.c
+ * @brief Очередь SMTP-сообщений
+ */
+
 #include <stdlib.h>
 #include <errno.h>
 #include "../bytes/bytes.h"
@@ -9,6 +14,12 @@
 #include "smtp_message_queue.h"
 #include "../errors/client_errors.h"
 
+
+/**
+ * Создание ноды очереди сообщений
+ * @param message SMTP-сообщение
+ * @return Нода очереди сообщений
+ */
 SMTPMessageQueue *smtpMessageQueueInit(const SMTPMessage *message) {
     SMTPMessageQueue *ans = NULL;
 
@@ -30,6 +41,12 @@ SMTPMessageQueue *smtpMessageQueueInit(const SMTPMessage *message) {
     return ans;
 }
 
+/**
+ * Добавление сообщения в очередь
+ * @param head Голова очереди
+ * @param message SMTP-сообщение
+ * @return Новая голова очереди
+ */
 SMTPMessageQueue *smtpMessageQueuePush(SMTPMessageQueue *head, const SMTPMessage *message) {
     SMTPMessageQueue *newEntry = NULL;
     SMTPMessageQueue *cur = head;
@@ -52,6 +69,12 @@ SMTPMessageQueue *smtpMessageQueuePush(SMTPMessageQueue *head, const SMTPMessage
     return head;
 }
 
+/**
+ * Получение сообщения из очереди
+ * @param head Голова очереди
+ * @param message Полученное сообщение
+ * @return Новая голова очереди
+ */
 SMTPMessageQueue *smtpMessageQueuePop(SMTPMessageQueue *head, SMTPMessage **message) {
     SMTPMessageQueue *newHead = NULL;
 
@@ -69,6 +92,11 @@ SMTPMessageQueue *smtpMessageQueuePop(SMTPMessageQueue *head, SMTPMessage **mess
     return newHead;
 }
 
+/**
+ * Длинна очереди
+ * @param head Голова очереди
+ * @return Длинна очереди
+ */
 size_t smtpMessageQueueCount(SMTPMessageQueue *head) {
     size_t ans = 0;
     SMTPMessageQueue *cur = head;
@@ -81,6 +109,10 @@ size_t smtpMessageQueueCount(SMTPMessageQueue *head) {
     return ans;
 }
 
+/**
+ * Деструктор ноды очереди
+ * @param node Нода очереди
+ */
 void smtpMessageQueueDeinitNode(SMTPMessageQueue *node) {
     if (!node)
         return;
@@ -91,6 +123,10 @@ void smtpMessageQueueDeinitNode(SMTPMessageQueue *node) {
     freeAndNull(node);
 }
 
+/**
+ * Деструктор Очереди
+ * @param head Голова очереди
+ */
 void smtpMessageQueueDeinitQueue(SMTPMessageQueue *head) {
     SMTPMessageQueue *cur;
 

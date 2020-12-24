@@ -2,6 +2,11 @@
 // Created by Dmitry Gorin on 20.11.2020.
 //
 
+/**
+ * @file logger.c
+ * @brief Функции логгера
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -70,6 +75,12 @@ int logChangeState(int fd, const String *domain, int oldState, const char* oldSt
     return logMessage(msg, info);
 }
 
+/**
+ * Логгирование
+ * @param message Сообщение
+ * @param messageType Тип сообщения (LogMessageType)
+ * @return Код ошибки (0 -- успешно)
+ */
 int logMessage(const char* message, LogMessageType messageType) {
     String *messageString;                          // Строка сообщения
     String *prefixString;                           // Строка префикса
@@ -142,6 +153,10 @@ static inline void log(FILE *file, const char *message) {
     fprintf(file, "%s\n", message);
 }
 
+/**
+ * Основная функция логгера (с созданием процесса)
+ * @return Pid процесса-логгера
+ */
 pid_t loggerMain(void) {
     return 0;
     int pid;                            // PID процесса-логгера

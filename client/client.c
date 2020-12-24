@@ -1,3 +1,8 @@
+/**
+ * @file client.c
+ * @brief Функции клиента
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +17,11 @@
 #include "../smtp/smtp_connection_list.h"
 #include "../autogen/fsm-fsm.h"
 
-
+/**
+ * Чтение из сокета
+ * @param connection SMTP-соединение
+ * @return Длинна прочитанного сообщения
+ */
 ssize_t readFromFd(SMTPConnection *connection) {
     ssize_t recvLength;
     char buf[READ_LENGTH];
@@ -44,6 +53,12 @@ ssize_t readFromFd(SMTPConnection *connection) {
     return recvLength;
 }
 
+/**
+ * Отправка данных через сокет
+ * @param connection SMTP-подключение
+ * @param flags Флаги send
+ * @return Количество отправленых байт
+ */
 ssize_t sendThroughSocket(SMTPConnection *connection, int flags) {
     ssize_t sentBytes;
     const String emptyString = EMPTY_STRING_INITIALIZER;
@@ -63,6 +78,11 @@ ssize_t sendThroughSocket(SMTPConnection *connection, int flags) {
     return sentBytes;
 }
 
+/**
+ * Парсинг кода возврата от SMPT-сервера
+ * @param responseString - Строка, прочитанная из подключения (До CRLF)
+ * @return Код возврата (0 если код возврата нечитаемый)
+ */
 int parseResponseCode(const String *responseString) {
     int ans;
     char strCode[3];
@@ -89,6 +109,11 @@ static void intHandler(int signal) {
     closeProgram = 1;
 }
 
+/**
+ * Основная функция клинета
+ * @param needLoopback Нужена ли отправка письма обратно на сторону сервера
+ * @return Код ошибки (0 -- успешное завершение)
+ */
 int clientMain(int needLoopback) {
     fd_set activeReadFdSet, activeWriteFdSet;           // Главные множества дескрипторов для select
     fd_set readFdSet, writeFdSet;                       // Множеста дескрипторов для select

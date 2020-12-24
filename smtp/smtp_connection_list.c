@@ -2,6 +2,11 @@
 // Created by Dmitry Gorin on 26.11.2020.
 //
 
+/**
+ * @file smtp_connection_list.c
+ * @brief Список SMTP-подключений
+ */
+
 #include <stdlib.h>
 #include <errno.h>
 #include "../errors/client_errors.h"
@@ -9,6 +14,10 @@
 #include "smtp_connection.h"
 #include "smtp_connection_list.h"
 
+/**
+ * Создание ноды списка
+ * @return Новая нода списка
+ */
 SMTPConnectionList *smtpConnectionListInitEmptyNode() {
     SMTPConnectionList *new = NULL;
     new = calloc(1, sizeof(SMTPConnectionList));
@@ -23,6 +32,11 @@ SMTPConnectionList *smtpConnectionListInitEmptyNode() {
     return new;
 }
 
+/**
+ * Деструктор ноды списка
+ * @param node Нода списка
+ * @param needClose Нужно ли закрывать сокетное подключение
+ */
 static void deinitSmtpConnectionListNode(SMTPConnectionList *node, int needClose) {
     node->next = NULL;
     smtpConnectionDeinit(node->connection, needClose);
@@ -30,6 +44,12 @@ static void deinitSmtpConnectionListNode(SMTPConnectionList *node, int needClose
     freeAndNull(node);
 }
 
+/**
+ * Получение подключения с сокетом
+ * @param head Голова списка
+ * @param socket Дескриптор сокета
+ * @return SMTP-подключение
+ */
 SMTPConnection *smtpConnectionListGetConnectionWithSocket(SMTPConnectionList *head, int socket) {
     for (SMTPConnectionList *cur = head; cur != NULL; cur = cur->next)
         if (cur->connection && cur->connection->socket == socket)
@@ -38,6 +58,12 @@ SMTPConnection *smtpConnectionListGetConnectionWithSocket(SMTPConnectionList *he
     return NULL;
 }
 
+/**
+ * Получение подключения с доменом
+ * @param head Голова списка
+ * @param domain Домен
+ * @return SMTP-подключение
+ */
 SMTPConnection *smtpConnectionListGetConnectionWithDomain(SMTPConnectionList *head, const String *domain) {
     for (SMTPConnectionList *cur = head; cur != NULL; cur = cur->next)
         if (cur->connection && stringEqualsTo(cur->connection->domain, domain))
@@ -46,6 +72,13 @@ SMTPConnection *smtpConnectionListGetConnectionWithDomain(SMTPConnectionList *he
     return NULL;
 }
 
+/**
+ * Добавление сообщения в подключения (и создание нового подключения при необходимости)
+ * @param head Голова списка
+ * @param message Сообщение
+ * @param ignoreKimiMimi Игнорировать или нет локальный домен
+ * @return Новая голова списка
+ */
 SMTPConnectionList *smtpConnectionListAddMessage(SMTPConnectionList *head, const SMTPMessage *message, int ignoreKimiMimi) {
     SMTPConnectionList *newHead = head;
     SMTPConnection *connToAddMessage = NULL;
@@ -99,6 +132,12 @@ SMTPConnectionList *smtpConnectionListAddMessage(SMTPConnectionList *head, const
     return newHead;
 }
 
+/**
+ * Добавление подключения в список
+ * @param head Голова списка
+ * @param conn SMTP-подключение
+ * @return Новая голова списка
+ */
 SMTPConnectionList *smtpConnectionListAddConnectionToList(SMTPConnectionList *head, SMTPConnection *conn) {
     SMTPConnectionList *cur = head;
     SMTPConnectionList *new = NULL;
@@ -121,6 +160,13 @@ SMTPConnectionList *smtpConnectionListAddConnectionToList(SMTPConnectionList *he
     return head;
 }
 
+/**
+ * Удаление подключения из списка и его деинициализация
+ * @param head Голова списка
+ * @param socket Дескриптор сокета для поиска подключения на удаление
+ * @param needClose Нужно ли закрывать сокетное подключение
+ * @return Новая голова списка
+ */
 SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPConnectionList *head, int socket, int needClose) {
     if (!head)
         return NULL;
@@ -150,6 +196,11 @@ SMTPConnectionList *smtpConnectionListRemoveAndDeinitConnectionWithSocket(SMTPCo
     return newHead;
 }
 
+/**
+ * Деструктор списка
+ * @param head Голова списка
+ * @param needClose Нужно ли закрывать сокетные подключения
+ */
 void smtpConnectionListDeinitList(SMTPConnectionList *head, int needClose) {
     SMTPConnectionList *cur;
 

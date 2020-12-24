@@ -10,6 +10,12 @@
 #include "../errors/client_errors.h"
 
 
+/**
+ * Создание строки из массива байт
+ * @param initialBuf Массив байт
+ * @param initialBufCount Размер массива байт
+ * @return Строка с копией массива байт
+ */
 String *stringInit(const char *initialBuf, size_t initialBufCount) {
     String *self = NULL;
     self = calloc(1, sizeof(String));
@@ -35,6 +41,10 @@ String *stringInit(const char *initialBuf, size_t initialBufCount) {
     return self;
 }
 
+/**
+ * Создание пустой строки
+ * @return Пустая строка
+ */
 String *stringInitEmpty() {
     String *self = stringInit("", 0);
     if (!self) {
@@ -44,6 +54,11 @@ String *stringInitEmpty() {
     return self;
 }
 
+/**
+ * Создание строки из С-строки
+ * @param initialBuf С-строка
+ * @return Строка с копией С-строки
+ */
 String *stringInitFromStringBuf(const char *initialBuf) {
     String *self = NULL;
     self = stringInit(initialBuf, strlen(initialBuf));
@@ -52,6 +67,11 @@ String *stringInitFromStringBuf(const char *initialBuf) {
     return self;
 }
 
+/**
+ * Копирование строки
+ * @param cpy Строка, копию которой необходимо сделать
+ * @return Копия строки
+ */
 String *stringInitCopy(const String *cpy) {
     String *self = NULL;
     self = stringInit(cpy->buf, cpy->count);
@@ -76,6 +96,12 @@ int reallocStringWithCapacity(String *self, size_t newCapacity) {
     return newCapacity;
 }
 
+/**
+ * Конкатенация строк
+ * @param self Строка, к которой необходимо добавить строку
+ * @param append Строка, которую необходимо добавить к изначальной строке
+ * @return Новая длинна строки
+ */
 int stringConcat(String *self, const String *append) {
     size_t newCount = 0;
     size_t newCapacity = 0;
@@ -111,6 +137,12 @@ int stringConcat(String *self, const String *append) {
     return self->count;
 }
 
+/**
+ * Предикат наличия префикса у строки
+ * @param self Строка
+ * @param prefix Искомый префикс
+ * @return Имеется или нет переданный префикс у строки
+ */
 int stringHasPrefix(String *self, const String *prefix) {
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;
@@ -125,6 +157,12 @@ int stringHasPrefix(String *self, const String *prefix) {
     return stringContains(self, prefix) == 0;
 }
 
+/**
+ * Предикат наличия суффикса у строки
+ * @param self Строка
+ * @param suffix Искомый суффикс
+ * @return Имеется или нет переданный суффикс у строки
+ */
 int stringHasSuffix(String *self, const String *suffix) {
     int suffixIdx;
 
@@ -141,6 +179,12 @@ int stringHasSuffix(String *self, const String *suffix) {
     return suffixIdx == -1 ? STRING_CHAR_NOT_FOUND : suffixIdx;
 }
 
+/**
+ * Предикат наличия подстроки в строке
+ * @param self Строка
+ * @param substring Искомая подстрока
+ * @return Имеется или нет переданная подстрока в строке
+ */
 int stringContains(String *self, const String *substring) {
     int subBufFirstIdx;
 
@@ -158,6 +202,12 @@ int stringContains(String *self, const String *substring) {
     return subBufFirstIdx == -1 ? STRING_CHAR_NOT_FOUND : subBufFirstIdx;
 }
 
+/**
+ * Поиск индекса первого вхождения символа в строку
+ * @param self Строка
+ * @param character Искомый символ
+ * @return Индекс при успехе, STRING_CHAR_NOT_FOUND при отсутствии символа
+ */
 int stringFirstIndex(const String *self, char character) {
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;
@@ -210,6 +260,13 @@ int stringLastIndexInRange(const String *self, const char *characters, int range
     return STRING_CHAR_NOT_FOUND;
 }
 
+/**
+ * Удаление переданных символов с конца строки
+ * @param self Строка
+ * @param symbols Символы для удаления
+ * @param symbolsLen Количество символов
+ * @return Количество удаленных символов
+ */
 int stringStripTrailingSymbols(String *self, const char *symbols, int symbolsLen) {
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;
@@ -238,6 +295,14 @@ int stringStripTrailingSymbols(String *self, const char *symbols, int symbolsLen
     return diff;
 }
 
+/**
+ * Замена символов в строке
+ * @param self Строка
+ * @param startIdx Индекс начала изменения
+ * @param len Длинна для изменения
+ * @param with Строка, на которую заменить множество символов
+ * @return Новая длинна строки
+ */
 int stringReplaceCharactersFromIdxWithLen(String *self, int startIdx, size_t len, const String *with) {
     size_t newCount;
     String *oldString;
@@ -325,6 +390,13 @@ int stringUppercaseLatin(String *self) {
     return 0;
 }
 
+/**
+ * Получение подстроки из строки
+ * @param self Строка
+ * @param from Индекс начала копирования символов для подстроки
+ * @param to Индекс конца копирования для подстроки
+ * @return Подстрока
+ */
 String *stringSlice(const String *self, int from, int to) {
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;
@@ -364,6 +436,12 @@ String *stringSlice(const String *self, int from, int to) {
     return res;
 }
 
+/**
+ * Предикат равенства строк
+ * @param self Строка
+ * @param another Строка для сравнения
+ * @return Равны или нет строки
+ */
 int stringEqualsTo(const String *self, const String *another) {
     if (!self || !another)
         return 0;
@@ -374,6 +452,10 @@ int stringEqualsTo(const String *self, const String *another) {
     return !strcmp(self->buf, another->buf);
 }
 
+/**
+ * Очистка строки
+ * @param self Строка
+ */
 void stringClear(String *self) {
     if (!self)
         return;
@@ -383,6 +465,10 @@ void stringClear(String *self) {
     self->capacity = 0;
 }
 
+/**
+ * Деструктор строки
+ * @param self Строка
+ */
 void stringDeinit(String *self) {
     if (!self)
         return;

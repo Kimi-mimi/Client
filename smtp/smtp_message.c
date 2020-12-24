@@ -2,6 +2,12 @@
 // Created by Dmitry Gorin on 21.11.2020.
 //
 
+/**
+ * @file smtp_message.c
+ * @brief SMTP-сообщение
+ */
+
+
 #include <stdlib.h>
 #include <dirent.h>
 #include <string.h>
@@ -11,6 +17,10 @@
 #include "../errors/client_errors.h"
 #include "smtp_message.h"
 
+/**
+ * Создание пустого SMTP-сообщения
+ * @return SMTP-сообщение
+ */
 SMTPMessage *smtpMessageInit() {
     SMTPMessage *self = NULL;
     self = calloc(1, sizeof(SMTPMessage));
@@ -46,6 +56,11 @@ SMTPMessage *smtpMessageInit() {
     return self;
 }
 
+/**
+ * Создание копии SMTP-сообщение
+ * @param copy SMTP-сообщение для копирования
+ * @return Копия сообщения
+ */
 SMTPMessage *smtpMessageInitCopy(const SMTPMessage *copy) {
     SMTPMessage *self = NULL;
 
@@ -77,6 +92,11 @@ SMTPMessage *smtpMessageInitCopy(const SMTPMessage *copy) {
     return self;
 }
 
+/**
+ * Создание SMTP-сообщения из файла
+ * @param filename Имя файла
+ * @return SMTP-сообщение
+ */
 SMTPMessage *smtpMessageInitFromFile(const char* filename) {
     SMTPMessage *self = NULL;
     const String fromPrefix = { .buf = "X-KIMI-From: ", .count = 13, .capacity = 16 };
@@ -204,6 +224,12 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
     return self;
 }
 
+/**
+ * Создание SMTP-сообщений из директории
+ * @param dirname Имя дериктории
+ * @param messagesNumber Количество созданных сообщений
+ * @return Массив сообщений
+ */
 SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
     DIR *d;
     struct dirent *dir;
@@ -304,6 +330,12 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
     return ans;
 }
 
+/**
+ * Добавление получателя в SMTP-сообщение
+ * @param self SMTP-сообщение
+ * @param recipient Новый получатель
+ * @return Новое количество получателей
+ */
 int smtpMessageAddRecipient(SMTPMessage *self, String *recipient) {
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;
@@ -359,6 +391,11 @@ String *smtpMessageGetAnyHeader(const char* headerName, const String *headerData
     return ans;
 }
 
+/**
+ * Получение домена из почтового адреса
+ * @param emailAddress Почтовый адрес
+ * @return Домен
+ */
 String *getDomainFromEmailAddress(const String *emailAddress) {
     int monkeyIdx;
     String *domain = NULL;
@@ -396,6 +433,12 @@ String *smtpMessageGetFromDomain(const SMTPMessage *self) {
     return getDomainFromEmailAddress(self->from);
 }
 
+/**
+ * Получение всех уникальных доменов получателей
+ * @param self SMTP-сообщение
+ * @param domainsNum Полученное количество доменов
+ * @return Массив доменов
+ */
 String **smtpMessageGetRecipientsDomainsDistinct(const SMTPMessage *self, size_t *domainsNum) {
     String **ans = NULL;
     String **tmpAns = NULL;
@@ -470,6 +513,11 @@ int smtpMessageIsEqualByData(const SMTPMessage *self, const SMTPMessage *another
     return stringEqualsTo(self->data, another->data);
 }
 
+/**
+ * Получение SMTP-хэдерв FROM
+ * @param self SMTP-сообщение
+ * @return Хэдер
+ */
 String *smtpMessageGetFromHeader(const SMTPMessage *self) {
     String *header = NULL;
 
@@ -504,6 +552,10 @@ String *smtpMessageGetSubjectHeader(const SMTPMessage *self) {
     return header;
 }
 
+/**
+ * Деструктор SMTP-сообщения
+ * @param self SMTP-сообщение
+ */
 void smtpMessageDeinit(SMTPMessage *self) {
     if (!self)
         return;
