@@ -9,7 +9,7 @@ BUILD_DIR = build
 TEST_DIR = $(BUILD_DIR)/test
 TEXDIR = tex
 TEXINCDIR = $(TEXDIR)/include
-DOXDIR = doxygen
+DOXDIR = $(TEXINCDIR)/doxygen
 UDIR = utils
 DOTDIR = dot
 
@@ -205,7 +205,10 @@ $(MAKEFILE_PDF_FILE): $(MAKEFILE_TEX_FILE)
 doxygen: $(DOXYGEN_CONF_FILE)
 	$(DOXYGEN) $(DOXYGEN_CONF_FILE)
 
-doxygen_pdf: doxygen
+doxygen_copy_styles: doxygen
+	cp $(DOXDIR)/latex/*.sty $(TEXDIR)
+
+doxygen_pdf: doxygen doxygen_copy_styles
 	cd tex/include/doxygen/latex && make && cd ../../../../
 
 # report itself

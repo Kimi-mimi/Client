@@ -60,3 +60,5 @@ simplest.mk
 *.aux
 *.dot
 *.toc
+*.sty
+*.idx

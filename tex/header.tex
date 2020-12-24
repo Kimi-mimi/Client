@@ -1,6 +1,7 @@
 \usepackage[utf8x]{inputenc}
 \usepackage[T2A]{fontenc}
 \usepackage[english, russian]{babel}
+\usepackage[table]{xcolor}
 
 % Опционно, требует  apt-get install scalable-cyrfonts.*
 % и удаления одной строчки в cyrtimes.sty
@@ -62,63 +63,97 @@ unicode=true
 
 
 % А это взято из файла, сгенерённого doxygen
+% Packages required by doxygen
+\usepackage{fixltx2e}
 \usepackage{calc}
-\usepackage{array}
-\newenvironment{Code}
-{\footnotesize}
-{\normalsize}
-\newcommand{\doxyref}[3]{\textbf{#1} (\textnormal{#2}\,\pageref{#3})}
-\newenvironment{DocInclude}
-{\footnotesize}
-{\normalsize}
-\newenvironment{VerbInclude}
-{\footnotesize}
-{\normalsize}
-\newenvironment{Image}
-{\begin{figure}[H]}
-{\end{figure}}
-\newenvironment{ImageNoCaption}{}{}
-\newenvironment{CompactList}
-{\begin{list}{}{
-  \setlength{\leftmargin}{0.5cm}
-  \setlength{\itemsep}{0pt}
-  \setlength{\parsep}{0pt}
-  \setlength{\topsep}{0pt}
-  \renewcommand{\makelabel}{\hfill}}}
-{\end{list}}
-\newenvironment{CompactItemize}
-{
-  \begin{itemize}
-  \setlength{\itemsep}{-3pt}
-  \setlength{\parsep}{0pt}
-  \setlength{\topsep}{0pt}
-  \setlength{\partopsep}{0pt}
+\usepackage{doxygen}
+\usepackage{graphicx}
+\usepackage{makeidx}
+\usepackage{multicol}
+\usepackage{multirow}
+\PassOptionsToPackage{warn}{textcomp}
+\usepackage{textcomp}
+\usepackage[nointegrals]{wasysym}
+\usepackage{ifpdf,ifxetex}
+
+% NLS support packages
+\usepackage[T2A]{fontenc}
+\usepackage[russian]{babel}
+
+% Font selection
+\usepackage[T1]{fontenc}
+\usepackage[scaled=.90]{helvet}
+\usepackage{courier}
+\usepackage{amssymb}
+\usepackage{sectsty}
+\renewcommand{\familydefault}{\sfdefault}
+\allsectionsfont{%
+  \fontseries{bc}\selectfont%
+  \color{darkgray}%
 }
-{\end{itemize}}
-\newcommand{\PBS}[1]{\let\temp=\\#1\let\\=\temp}
-\newlength{\tmplength}
-\newenvironment{TabularC}[1]
-{
-\setlength{\tmplength}
-     {\linewidth/(#1)-\tabcolsep*2-\arrayrulewidth*(#1+1)/(#1)}
-      \par\begin{tabular*}{\linewidth}
-             {*{#1}{|>{\PBS\raggedright\hspace{0pt}}p{\the\tmplength}}|}
+\renewcommand{\DoxyLabelFont}{%
+  \fontseries{bc}\selectfont%
+  \color{darkgray}%
 }
-{\end{tabular*}\par}
-\newcommand{\entrylabel}[1]{
-   {\parbox[b]{\labelwidth-4pt}{\makebox[0pt][l]{\textbf{#1}}\vspace{1.5\baselineskip}}}}
-\newenvironment{Desc}
-{\begin{list}{}
-  {
-    \settowidth{\labelwidth}{40pt}
-    \setlength{\leftmargin}{\labelwidth}
-    \setlength{\parsep}{0pt}
-    \setlength{\itemsep}{-4pt}
-    \renewcommand{\makelabel}{\entrylabel}
-  }
+\newcommand{\+}{\discretionary{\mbox{\scriptsize$\hookleftarrow$}}{}{}}
+
+% Arguments of doxygenemoji:
+% 1) ':<text>:' form of the emoji, already "LaTeX"-escaped
+% 2) file with the name of the emoji without the .png extension
+% in case image exist use this otherwise use the ':<text>:' form
+\newcommand{\doxygenemoji}[2]{%
+  \IfFileExists{./#2.png}{\raisebox{-0.1em}{\includegraphics[height=0.9em]{./#2.png}}}{#1}%
 }
-{\end{list}}
-\newenvironment{Indent}
-  {\begin{list}{}{\setlength{\leftmargin}{0.5cm}}
-      \item[]\ignorespaces}
-  {\unskip\end{list}}
+% Page & text layout
+\usepackage{geometry}
+\geometry{%
+  a4paper,%
+  top=2.5cm,%
+  bottom=2.5cm,%
+  left=2.5cm,%
+  right=2.5cm%
+}
+\tolerance=750
+\hfuzz=15pt
+\hbadness=750
+\setlength{\emergencystretch}{15pt}
+\setlength{\parindent}{0cm}
+\newcommand{\doxynormalparskip}{\setlength{\parskip}{3ex plus 2ex minus 2ex}}
+\newcommand{\doxytocparskip}{\setlength{\parskip}{1ex plus 0ex minus 0ex}}
+\doxynormalparskip
+\makeatletter
+\renewcommand{\paragraph}{%
+  \@startsection{paragraph}{4}{0ex}{-1.0ex}{1.0ex}{%
+    \normalfont\normalsize\bfseries\SS@parafont%
+  }%
+}
+\renewcommand{\subparagraph}{%
+  \@startsection{subparagraph}{5}{0ex}{-1.0ex}{1.0ex}{%
+    \normalfont\normalsize\bfseries\SS@subparafont%
+  }%
+}
+\makeatother
+
+% Indices & bibliography
+\usepackage{natbib}
+\usepackage[titles]{tocloft}
+\setcounter{tocdepth}{3}
+\setcounter{secnumdepth}{5}
+\makeindex
+
+\usepackage{newunicodechar}
+  \newunicodechar{⁻}{${}^{-}$}% Superscript minus
+  \newunicodechar{²}{${}^{2}$}% Superscript two
+  \newunicodechar{³}{${}^{3}$}% Superscript three
+
+% Custom commands
+\newcommand{\clearemptydoublepage}{%
+  \newpage{\pagestyle{empty}\cleardoublepage}%
+}
+
+\usepackage{caption}
+\captionsetup{labelsep=space,justification=centering,font={bf},singlelinecheck=off,skip=4pt,position=top}
+
+\usepackage{etoc}
+\etocsettocstyle{\doxytocparskip}{\doxynormalparskip}
+\renewcommand{\numberline}[1]{#1~}

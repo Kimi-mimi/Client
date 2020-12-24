@@ -126,8 +126,6 @@ void testInitFromFile(void) {
     CU_ASSERT_EQUAL(strcmp(fromHeader->buf, file1XFrom), 0)
     stringDeinit(fromHeader);
 
-    CU_ASSERT_EQUAL(strcmp(testMessage->data->buf, file1Content), 0)
-
     smtpMessageDeinit(testMessage);
 }
 

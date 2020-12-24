@@ -15,111 +15,170 @@
 \addcontentsline{toc}{chapter}{Введение}
 \chapter*{Введение}
 
-Два предложения о содержании отчёта. Для нового абзаца в исходном тексте должна быть пустая строка.
+Задание на курсовую работу: Реализовать клиента SMTP-сервера с использованием системного вызова \textit{select} и использующего один рабочий поток с журналированием в отдельном процессе.
+Данный отчет содержит информацию о протоколе \textit{SMTP}, а так же информацию о реализации и разработке курсового проекта.
 
-Это~-- шаблон отчёта \(вот как оформляется длинное тире, перед котрым идёт неразрывный пробел\).
+\chapter{Аналитический раздел}
 
+\section{Протокол SMTP}
 
-Здесь должно быть вербальное задание.
+SMTP (Simple Mail Transfer Protocol) — это широко используемый сетевой протокол, предназначенный для передачи электронной почты в сетях TCP/IP.
+SMTP впервые был описан в RFC 821 (1982 год); последнее обновление в RFC 5321 (2008) включает масштабируемое расширение — ESMTP (Extended SMTP).
+В настоящее время под «протоколом SMTP» как правило подразумевают и его расширения.
+Протокол SMTP предназначен для передачи исходящей почты с использованием порта TCP 25.
 
-А вот так оформляются списки:
+\subsection{SMTP-команды}
+
+Ниже представлен неплоный список SMTP-команд:
 \begin{itemize}
-\item элемент списка;
-\item последний элемент списка.
+    \item \textit{HELO} - Открывает SMTP-сессию
+    \item \textit{EHLO} - Открывает ESMTP-сессию
+    \item \textit{MAIL} - Определяет отправителя сообщения
+    \item \textit{RCPT} - Определяет получателей сообщения
+    \item \textit{DATA} - Определяет начало сообщения
+    \item \textit{RSET} - Сброс SMTP-соединения
+    \item \textit{VRFY} - Проверяет имя пользователя системы
+    \item \textit{QUIT} - Остановить сеанс SMTP
 \end{itemize}
 
-Нумерованный список выглядит следующим образом.
+\subsection{SMTP-сессия}
+SMTP-сессия состоит из команд, посылаемых SMTP-клиентом, и соответствующих ответов SMTP-сервера.
+Когда сессия открыта, сервер и клиент обмениваются её параметрами.
+Сессия может включать ноль и более SMTP-операций (транзакций).
+
+Сессия начинается с команды \textit{HELO} или \textit{EHLO}, и заканчивается командой \textit{QUIT}.
+Сбросить состояние сессии можно командой \textit{RSET}.
+
+Отправка сообщения состоит из трёх последовательностей команда/ответ:
 \begin{enumerate}
-\item Первый элемент.
-\item Второй элемент.
+    \item \textit{MAIL FROM} — устанавливает обратный адрес
+    \item \textit{RCPT TO} — устанавливает получателя данного сообщения.
+    Эта команда может быть дана несколько раз, по одной на каждого получателя.
+    \item \textit{DATA} — для отправки текста сообщения.
 \end{enumerate}
 
-% \chapter{Аналитический раздел}
+\section{Плюсы и минусы использования однопоточной схемы обработки подключений с использованием системного вызова select}
+Плюсы:
+\begin{itemize}
+    \item Упрощение логики программы
+    \item select принимает аргументы одной длинны, что упрощает работу с памятью
+\end{itemize}
+
+Минусы:
+\begin{itemize}
+    \item select может обработать до 1024 (FD\_SETSIZE) подключений максимум
+    \item Невозможна одновременная (параллельная) обработка нескольких подключений, что увеличит время обработки каждого подключения
+\end{itemize}
 
 \chapter{Конструкторский раздел}
 
 \section{Конечный автомат состояний сервера}
 
-Рис.~\ref{fig:fsm} нагенерил самодельный \textit{fsm2dot} из \textit{autogen} и \textit{dot2tex} на пару \textit{dot}. Никто не мешает изменить параметры типа \textit{rankdir} прямо в \textit{fsm2dot}, если он будет лучше смотреться, например, сверху-вниз.
+На Рис.~\ref{fig:fsm-client} представлен конечный автомат клиентской части курсовой работы.
 
 \begin{figure}
-\centering
-\includegraphics[width=\textwidth]{include/fsm.pdf}
-\caption{Состояния сервера}
-\label{fig:fsm}
+    \centering
+    \includegraphics[width=\textwidth]{include/fsm.pdf}
+    \caption{Состояния клинетской части}
+    \label{fig:fsm-client}
 \end{figure}
 
-\section{Синтаксис команд протокола}
+\section{Описание основных структур данных}
+\begin{itemize}
+    \item String -- Структура строки текста
+    \item SMTPMessage -- SMTP-сообщение. Содержит весь текст сообщения, а так же спарсенные данные для команд MAIL FROM и RCPT TO
+    \item SMTPMessageQueue -- Очередь SMTP-сообщений
+    \item SMTPConnection -- SMTP-соединение. Содержит сокет, буферы чтения и записи и очередь сообщений
+    \item SMTPConnectionList -- Список SMTP-подключений
+\end{itemize}
 
-\begin{description}
-\item[Команда выхода из сеанса]
-%\input{include/re_cmd_quit_re.tex}
-Вот тут было вот такое \(\\input\{include/re_cmd_quit_re.tex\}\), но закоментил
-\item[Команда передачи имени пользователя]
-Тут тоже примерно такое
-%\input{include/re_cmd_user_re.tex}
-\end{description}
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{include-git/SMTP-ER.pdf}
+    \caption{ER-диаграмма}
+    \label{fig:er}
+\end{figure}
 
-Для грамматики можно использовать вставку из файла и оформление \textbackslash{}begin\{verbatim\} и \textbackslash{}end\{verbatim\} или пакет \textit{listings}\footnote{На дворе XXI век, но пакет \textit{listings} всё ещё не пашет с русскими комментариями без бубна, и лично я его пока не победил.}.
+\section{Связь логгера и основной программы}
+Программа-клиент отправляет сообщения программе-логгеру через технологию IPC message queue (sys/msg.h)
 
-Для примера воспользуемся автоматической вставкой файла описания параметров программы \(не забудьте перенести это в технологический раздел\) через утилитку \textit{src2tex}.
 
-Ну у меня аутоопс нет, так что закомментил это: \(\\input\{include/checkoptn.def.tex\}\)
-% \lstset{language=C}
-% \lstinputlisting{../src/checkoptn.def}
+%\section{Синтаксис команд протокола}
+
+%\begin{description}
+%\item[Команда выхода из сеанса]
+%%\input{include/re_cmd_quit_re.tex}
+%Вот тут было вот такое \(\\input\{include/re_cmd_quit_re.tex\}\), но закоментил
+%\item[Команда передачи имени пользователя]
+%Тут тоже примерно такое
+%%\input{include/re_cmd_user_re.tex}
+%\end{description}
+%
+%Для грамматики можно использовать вставку из файла и оформление \textbackslash{}begin\{verbatim\} и \textbackslash{}end\{verbatim\} или пакет \textit{listings}\footnote{На дворе XXI век, но пакет \textit{listings} всё ещё не пашет с русскими комментариями без бубна, и лично я его пока не победил.}.
+%
+%Для примера воспользуемся автоматической вставкой файла описания параметров программы \(не забудьте перенести это в технологический раздел\) через утилитку \textit{src2tex}.
+%
+%Ну у меня аутоопс нет, так что закомментил это: \(\\input\{include/checkoptn.def.tex\}\)
+%% \lstset{language=C}
+%% \lstinputlisting{../src/checkoptn.def}
 
 \chapter{Технологический раздел}
 
-Нужно отметьть, что символ <<\_>> необходимо оформлять как <<\textbackslash\_>>.
+\section{Доступ к данным на диске}
+Сервер записывает все письма в директорию Client/mails в виде текстовых файлов.
+Для корректной работы команд MAIL FROM и RCPT TO сервер записывает нужные данные в заголовки X-KIMI-From и X-KIMI-To соответственно.
 
 \section{Сборка программы}
+Сборка программы описана в файле \textit{Makefile} системы сборки \textit{make}.
+%Рис.~\ref{fig:make} нагенерили самодельные \textit{makesimple} и \textit{makefile2dot}, а также \textit{dot2tex} и \textit{dot}.
 
-Сборка программы описана в файле \textit{Makefile} системы сборки \textit{make}. Рис.~\ref{fig:make} нагенерили самодельные \textit{makesimple} и \textit{makefile2dot}, а также \textit{dot2tex} и \textit{dot}.
+%\begin{figure}
+%\centering
+%\includegraphics[width=\textwidth]{include/makefile.pdf}
+%\caption{Сборка программы}
+%\label{fig:make}
+%\end{figure}
 
-\begin{figure}
-\centering
-\includegraphics[width=\textwidth]{include/makefile.pdf}
-\caption{Сборка программы}
-\label{fig:make}
-\end{figure}
-
-Отмечу, что за исключения целей типа \textit{all}, \textit{install}, \textit{clean}, \textit{tests}, все имена целей в файле систем сборки \textit{make} обычно совпадают с именами файлов \(такой вот низкоуровневый инструмент\). То есть вместо цели \textit{lexer} следует использовать цель \textit{src/lexer.c}.
+%Отмечу, что за исключения целей типа \textit{all}, \textit{install}, \textit{clean}, \textit{tests}, все имена целей в файле систем сборки \textit{make} обычно совпадают с именами файлов \(такой вот низкоуровневый инструмент\). То есть вместо цели \textit{lexer} следует использовать цель \textit{src/lexer.c}.
 
 \section{Основные функции программы}
 
-Весь это раздел сгеренерировал doxygen из части комментированных исходников программы. В файле конфигурации \textbf{doxyggen.cfg} был отключён параметр \textbf{HAVE\_DOT}, поскольку для рисования графов вызовов используется \textit{cflow}.
+Весь это раздел сгеренерировал doxygen из части комментированных исходников программы.
+В файле конфигурации \textbf{doxyggen.cfg} был отключён параметр \textbf{HAVE\_DOT}, поскольку для рисования графов вызовов используется \textit{cflow}.
 
-% \input{include/files}
-
-%\input{include/server-state_8h.tex}
-%% \input{include/server-state_8c.tex}
-%\input{include/server-re_8h.tex}
-%\input{include/server-cmd_8h.tex}
-%% \input{include/server-cmd_8c.tex}
-%\input{include/server-parse_8h.tex}
-%\input{include/server-parse_8c.tex}
-%\input{include/server-run_8h.tex}
-%\input{include/server-run_8c.tex}
-%\input{include/server_8c.tex}
+\input{include/doxygen/latex/client_8c.tex}
+\input{include/doxygen/latex/logger_8c.tex}
+\input{include/doxygen/latex/smtp__connection_8c.tex}
+\input{include/doxygen/latex/smtp__connection__list_8c.tex}
+\input{include/doxygen/latex/smtp__message_8c.tex}
+\input{include/doxygen/latex/smtp__message__queue_8c.tex}
 
 
 \section{Графы вызова функций}
 
-Поскольку функций много, графы вызовов разбиты на два рисунка. На рис.~\ref{fig:cflow01} показаны основные функции, на рис.~\ref{fig:cflow02}~-- функции обработки команд. Файл \textbf{cflow.ignore} содержит список функций (точнее, шабловнов поиска), использыемых программой \textit{grep} для удаления малоинтересных стандартных функций\footnote{Функции по работе с сокетами, ipc и привилегиями к малоинтересным ни в коем случае не относятся.}.
+На рис.~\ref{fig:cflow01} показаны основные функции.
+%Файл \textbf{cflow.ignore} содержит список функций \(точнее, шабловнов поиска\), использыемых программой \textit{grep} для удаления малоинтересных стандартных функций\footnote{Функции по работе с сокетами, ipc и привилегиями к малоинтересным ни в коем случае не относятся.}.
 
-\begin{figure}
-\centering
-\includegraphics[width=\textwidth]{include/cflow.pdf}
-\caption{Граф вызовов, основные функции}
-\label{fig:cflow01}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{include/cflow.pdf}
+    \caption{Граф вызовов, основные функции клиента}
+    \label{fig:cflow01}
 \end{figure}
 
 Графы созданы с помощью \textit{cflow}, \textit{cflow2dot}, \textit{dot}.
 
+\section{Модульные тесты}
+Для модульного тестирования используется библиотека CUnit. Всего написано 35 тестов с 205 ASSERT-вызовами.
+
+\section{Генерация документации и отчета}
+Отчет и документация генерируются автоматически через Makefile.
+Для этого в Makefile добавлена цель doxygen и report (report также генерирует doxygen).
+
 \addcontentsline{toc}{chapter}{Выводы}
 \chapter*{Выводы}
 
-Что вы сделали и поняли.
-
+В ходе выполнения работы был реализован клиент серверной части SMTP-сервера.
+Был изучен протокол SMTP и были получены навыки в написании сетевых приложений на языке C с использованием мультиплексирования.
 
 \end{document}
