@@ -220,4 +220,4 @@ $(REPORT_PDF_FILE): $(FSM_PDF_FILE) $(CFLOW_PDF_FILE) $(MAKEFILE_PDF_FILE) doxyg
 
 clean:
 	rm -rf $(BUILD_DIR) *.log $(TEXINCDIR) *.pdf simplest.mk \
-$(TEXDIR)/*.aux $(TEXDIR)/*.log $(TEXDIR)/*.out $(TEXDIR)/*.pdf $(TEXDIR)/*.toc
+$(TEXDIR)/*.aux $(TEXDIR)/*.log $(TEXDIR)/*.out $(TEXDIR)/*.pdf $(TEXDIR)/*.toc $(TEXDIR)/*.idx $(TEXDIR)/*.sty
