@@ -73,6 +73,9 @@ void errorPrint() {
         case CERR_MSGRCV:
             printError("msgrcv");
             break;
+        case CERR_PIPE:
+            printError("pipe");
+            break;
         default:
             printError("Unknown");
             break;

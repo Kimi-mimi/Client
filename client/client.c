@@ -104,8 +104,10 @@ int parseResponseCode(const String *responseString) {
 // ****************************************************************************************************************** //
 
 static volatile int closeProgram = 0;       // Флаг мягкого закрытия программы
+static int pipeFds[2] = { 0, 0 };
 
 static void intHandler(int signal) {
+    write(pipeFds[1], "QUIT", 4);
     closeProgram = 1;
 }
 
@@ -127,21 +129,29 @@ int clientMain(int needLoopback) {
     String *outputString = NULL;                        // Строка для вывода на экран (логгер)
     int exception = 0;                                  // Переменная для хранения ошибки
     int responseCode = -1;                              // Код ответа сервера
+    int ret = 0;                                        // Код возврата
     const char* mailDir = needLoopback ? MAILS_DIR_LOOPBACK : MAILS_DIR_NO_LOOPBACK;
 
     signal(SIGINT, intHandler);
     signal(SIGTERM, intHandler);
 
+    if (pipe(pipeFds) < 0) {
+        errno = CERR_PIPE;
+        errPrint();
+        return -1;
+    }
+
     FD_ZERO(&activeReadFdSet);
     FD_ZERO(&activeWriteFdSet);
     FD_ZERO(&readFdSet);
     FD_ZERO(&writeFdSet);
+    FD_SET(pipeFds[0], &activeReadFdSet);
 
     while(!closeProgram) {
         messagesFromDir = smtpMessageInitFromDir(mailDir, &messagesFromDirLen);
         if (messagesFromDirLen < 0) {
             errPrint();
-            printf("Ошибка в чтении сообщений из директории %s", mailDir);
+            logMessage("Ошибка в чтении сообщений из директории", error);
         } else if (messagesFromDirLen > 0) {
             for (int i = 0; i < messagesFromDirLen; i++) {
                 tmpConnectionListHead = smtpConnectionListAddMessage(connectionListHead, messagesFromDir[i], !needLoopback);
@@ -160,6 +170,7 @@ int clientMain(int needLoopback) {
             freeAndNull(messagesFromDir);
 
             FD_ZERO(&activeReadFdSet);
+            FD_SET(pipeFds[0], &activeReadFdSet);
             tmpConnectionListHead = connectionListHead;
             while (tmpConnectionListHead) {
                 FD_SET(tmpConnectionListHead->connection->socket, &activeReadFdSet);
@@ -178,14 +189,21 @@ int clientMain(int needLoopback) {
                 break;
             } else {
                 errno = CERR_SELECT;
-                smtpConnectionListDeinitList(connectionListHead, 1);
-                return -1;
+                errPrint();
+                ret = -1;
+                closeProgram = 1;
+                break;
             }
         }
 
         for (int i = 0; i < FD_SETSIZE; i++) {
             if (!FD_ISSET(i, &readFdSet) && !FD_ISSET(i, &writeFdSet))
                 continue;
+
+            if (i == pipeFds[0]) {
+                closeProgram = 1;
+                break;
+            }
 
             currentConnection = smtpConnectionListGetConnectionWithSocket(connectionListHead, i);
             if (!currentConnection) {
@@ -255,6 +273,8 @@ int clientMain(int needLoopback) {
         }
     }
 
+    close(pipeFds[0]);
+    close(pipeFds[1]);
     smtpConnectionListDeinitList(connectionListHead, 1);
-    return 0;
+    return ret;
 }

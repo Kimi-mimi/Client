@@ -28,6 +28,7 @@
 #define CERR_NO_MX_FOUND            19
 #define CERR_MSGSND                 20
 #define CERR_MSGRCV                 21
+#define CERR_PIPE                   22
 
 
 #define errPrint() fprintf(stderr, "File \"%s\" -> %s(), line %d\n", __FILE__, __FUNCTION__, __LINE__)
