@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
     pid_t loggerPid;
     int clientExitStatus;
     int loopback;
-//    int loggerExitStatus = 0;
+    int loggerExitStatus = 0;
 
     if (argc != 2) {
         printf("Usage: main [no-loopback/loopback]\n");
@@ -38,14 +38,14 @@ int main(int argc, char *argv[]) {
         errorPrint();
     }
 
-//    kill(loggerPid, SIGINT);
-//    waitpid(loggerPid, &loggerExitStatus, 0);
-//    if (WIFEXITED(loggerExitStatus)) {
-//        printf("Logger exited with status %d\n", WEXITSTATUS(loggerExitStatus));
-//    }
-//    if (WIFSIGNALED(loggerExitStatus)) {
-//        printf("Logger exited due to unhandled signal [%d]\n", WTERMSIG(loggerExitStatus));
-//    }
+    kill(loggerPid, SIGINT);
+    waitpid(loggerPid, &loggerExitStatus, 0);
+    if (WIFEXITED(loggerExitStatus)) {
+        printf("Logger exited with status %d\n", WEXITSTATUS(loggerExitStatus));
+    }
+    if (WIFSIGNALED(loggerExitStatus)) {
+        printf("Logger exited due to unhandled signal [%d]\n", WTERMSIG(loggerExitStatus));
+    }
 
     printf("Client says bye-bye to you!\n");
     return clientExitStatus;

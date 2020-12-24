@@ -120,8 +120,8 @@ int logMessage(const char* message, LogMessageType messageType) {
         return -1;
     }
 
-    printf("Logger: %s\n", prefixString->buf);
-    return 0;
+//    printf("Logger: %s\n", prefixString->buf);
+//    return 0;
 
     messageLen = prefixString->count > LOG_MESSAGE_SIZE - 1 ? LOG_MESSAGE_SIZE - 1 : prefixString->count;
     loggerMessage.msg_type = 1;
@@ -158,7 +158,7 @@ static inline void log(FILE *file, const char *message) {
  * @return Pid процесса-логгера
  */
 pid_t loggerMain(void) {
-    return 0;
+//    return 0;
     int pid;                            // PID процесса-логгера
     ssize_t received;                   // Размер считанного сообщения из msgrcv
     LoggerMessage loggerMessage;        // Сообщение логгера
