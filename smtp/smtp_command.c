@@ -7,7 +7,6 @@
 #include "smtp_command.h"
 
 
-
 String *getHELOCommand() {
     String *command = NULL;
 
@@ -91,42 +90,10 @@ String *getDATACommand(void) {
     return command;
 }
 
-String *getVRFYCommand(const String *username) {
-    String *command = NULL;
-    const String crlfString = CRLF_STRING_INITIALIZER;
-
-    command = stringInitFromStringBuf("VRFY ");
-    if (!command) {
-        errPrint();
-        return NULL;
-    }
-
-    if (stringConcat(command, username) < 0 ||
-            stringConcat(command, &crlfString) < 0) {
-        errPrint();
-        stringDeinit(command);
-        return NULL;
-    }
-
-    return command;
-}
-
 String *getRSETCommand() {
     String *command = NULL;
 
     command = stringInitFromStringBuf("RSET" CRLF);
-    if (!command) {
-        errPrint();
-        return NULL;
-    }
-
-    return command;
-}
-
-String *getNOOPCommand() {
-    String *command = NULL;
-
-    command = stringInitFromStringBuf("NOOP" CRLF);
     if (!command) {
         errPrint();
         return NULL;

@@ -73,7 +73,6 @@ static int fillSmtpMessage() {
             (message->recipients = calloc(1, sizeof(String*))) == NULL ||
             stringConcat(message->from, from) < 0 ||
             (message->recipients[0] = stringInitCopy(to)) == NULL ||
-            stringConcat(message->subject, subj) < 0 ||
             stringConcat(message->data, msg) < 0) {
         stringDeinit(from);
         stringDeinit(to);
@@ -126,11 +125,6 @@ void testInitFromFile(void) {
     CU_ASSERT_PTR_NOT_NULL_FATAL(fromHeader)
     CU_ASSERT_EQUAL(strcmp(fromHeader->buf, file1XFrom), 0)
     stringDeinit(fromHeader);
-
-    String *subjectHeader = smtpMessageGetSubjectHeader(testMessage);
-    CU_ASSERT_PTR_NOT_NULL_FATAL(subjectHeader)
-    CU_ASSERT_EQUAL(strcmp(subjectHeader->buf, file1Subject), 0)
-    stringDeinit(subjectHeader);
 
     CU_ASSERT_EQUAL(strcmp(testMessage->data->buf, file1Content), 0)
 

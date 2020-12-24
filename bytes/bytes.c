@@ -7,26 +7,6 @@
 #include "bytes.h"
 #include "../errors/client_errors.h"
 
-size_t concatBytesWithAllocAndLengths(char** bytes1, const char* bytes2, size_t bytes1Size, size_t bytes2Size,
-                                      size_t extraBytesLength) {
-    size_t totalLength = bytes1Size + bytes2Size + extraBytesLength;
-
-    char *newMem = calloc(totalLength, sizeof(char));
-    if (!newMem) {
-        errPrint();
-        errno = CERR_MEM_ALLOC;
-        return -1;
-    }
-
-    memcpy(newMem, *bytes1, sizeof(char) * bytes1Size);
-    memcpy(newMem + bytes1Size, bytes2, sizeof(char) * bytes2Size);
-
-    if (*bytes1)
-        free(*bytes1);
-    *bytes1 = newMem;
-    return totalLength;
-}
-
 int isBuffersEqual(const char *first, const char *second, size_t length1, size_t length2) {
     if (length1 != length2)
         return 0;

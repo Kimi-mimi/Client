@@ -341,27 +341,6 @@ int stringReplaceCharactersFromIdxWithLen(String *self, int startIdx, size_t len
     return newCount;
 }
 
-int stringAddSubstringAtIdx(String *self, int idx, const String *substring) {
-    if (!self) {
-        errno = CERR_SELF_UNINITIALIZED;
-        errPrint();
-        return -1;
-    }
-
-    if (idx < 0 || idx > self->count) {
-        errno = CERR_INVALID_ARG;
-        errPrint();
-        return -1;
-    }
-
-    if (stringReplaceCharactersFromIdxWithLen(self, idx, 0, substring) < 0) {
-        errPrint();
-        return -1;
-    }
-
-    return self->count;
-}
-
 int stringLowercaseLatin(String *self) {
     if (!self) {
         errno = CERR_SELF_UNINITIALIZED;

@@ -14,9 +14,7 @@ String *getEHLOCommand();
 String *getMAILFROMCommand(const String *fromAddress);
 String *getRCPTTOCommand(const String *recipientAddress);
 String *getDATACommand();
-String *getVRFYCommand(const String *username);
 String *getRSETCommand();
-String *getNOOPCommand();
 String *getQUITCommand();
 
 #endif //CLIENT_SMTP_COMMAND_H

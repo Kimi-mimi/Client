@@ -37,13 +37,6 @@ SMTPMessage *smtpMessageInit() {
         return NULL;
     }
 
-    self->subject = stringInitFromStringBuf("");
-    if (!self->subject) {
-        errPrint();
-        smtpMessageDeinit(self);
-        return NULL;
-    }
-
     self->data = stringInitFromStringBuf("");
     if (!self->data) {
         errPrint();
@@ -66,7 +59,6 @@ SMTPMessage *smtpMessageInitCopy(const SMTPMessage *copy) {
 
     if ((self = smtpMessageInit()) == NULL ||
             stringConcat(self->from, copy->from) < 0 ||
-            stringConcat(self->subject, copy->subject) < 0 ||
             stringConcat(self->data, copy->data) < 0) {
         errPrint();
         smtpMessageDeinit(self);
@@ -101,7 +93,6 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
     SMTPMessage *self = NULL;
     const String fromPrefix = { .buf = "X-KIMI-From: ", .count = 13, .capacity = 16 };
     const String toPrefix = { .buf = "X-KIMI-To: ", .count = 11, .capacity = 16 };
-    const String subjectPrefix = { .buf = "Subject: ", .count = 9, .capacity = 9 };
     const String newlineString = NEWLINE_STRING_INITIALIZER;
     const String crlfString = CRLF_STRING_INITIALIZER;
 
@@ -141,8 +132,6 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
                 currentPrefix = &fromPrefix;
             } else if (stringHasPrefix(lineString, &toPrefix)) {
                 currentPrefix = &toPrefix;
-            } else if (stringHasPrefix(lineString, &subjectPrefix)) {
-                currentPrefix = &subjectPrefix;
             } else if (stringEqualsTo(lineString, &newlineString) || stringEqualsTo(lineString, &crlfString)) {
                 // lineLength > 988, так что такая проверка безопасна
                 // https://stackoverflow.com/questions/11794698/max-line-length-in-mail
@@ -175,15 +164,6 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
             stringLowercaseLatin(slicedLineString);
             stringClear(self->from);
             if (stringConcat(self->from, slicedLineString) < 0) {
-                errPrint();
-                stringDeinit(lineString);
-                stringDeinit(originalLineString);
-                smtpMessageDeinit(self);
-                return NULL;
-            }
-        } else if (currentPrefix == &subjectPrefix) {
-            stringClear(self->subject);
-            if (stringConcat(self->subject, slicedLineString) < 0) {
                 errPrint();
                 stringDeinit(lineString);
                 stringDeinit(originalLineString);
@@ -423,16 +403,6 @@ String *getDomainFromEmailAddress(const String *emailAddress) {
     return domain;
 }
 
-String *smtpMessageGetFromDomain(const SMTPMessage *self) {
-    if (!self) {
-        errno = CERR_SELF_UNINITIALIZED;
-        errPrint();
-        return NULL;
-    }
-
-    return getDomainFromEmailAddress(self->from);
-}
-
 /**
  * Получение всех уникальных доменов получателей
  * @param self SMTP-сообщение
@@ -497,22 +467,6 @@ String **smtpMessageGetRecipientsDomainsDistinct(const SMTPMessage *self, size_t
     return ans;
 }
 
-int smtpMessageIsEqualByData(const SMTPMessage *self, const SMTPMessage *another) {
-    if (!self) {
-        errno = CERR_SELF_UNINITIALIZED;
-        errPrint();
-        return -1;
-    }
-
-    if (!another) {
-        errno = CERR_INVALID_ARG;
-        errPrint();
-        return -1;
-    }
-
-    return stringEqualsTo(self->data, another->data);
-}
-
 /**
  * Получение SMTP-хэдерв FROM
  * @param self SMTP-сообщение
@@ -535,23 +489,6 @@ String *smtpMessageGetFromHeader(const SMTPMessage *self) {
     return header;
 }
 
-String *smtpMessageGetSubjectHeader(const SMTPMessage *self) {
-    String *header = NULL;
-
-    if (!self) {
-        errno = CERR_SELF_UNINITIALIZED;
-        errPrint();
-        return NULL;
-    }
-
-    if ((header = smtpMessageGetAnyHeader("Subject", self->subject)) == NULL) {
-        errPrint();
-        return NULL;
-    }
-
-    return header;
-}
-
 /**
  * Деструктор SMTP-сообщения
  * @param self SMTP-сообщение
@@ -561,7 +498,6 @@ void smtpMessageDeinit(SMTPMessage *self) {
         return;
 
     stringDeinit(self->data);
-    stringDeinit(self->subject);
     stringDeinit(self->from);
     for (int i = 0; i > self->recipientsCount; i++) {
         stringDeinit(self->recipients[i]);

@@ -39,7 +39,6 @@ int stringLastIndexInRange(const String *self, const char *characters, int range
 
 int stringStripTrailingSymbols(String *self, const char *symbols, int symbolsLen);
 int stringReplaceCharactersFromIdxWithLen(String *self, int startIdx, size_t len, const String *with);
-int stringAddSubstringAtIdx(String *self, int idx, const String *substring);
 int stringLowercaseLatin(String *self);
 int stringUppercaseLatin(String *self);
 
