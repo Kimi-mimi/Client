@@ -1,0 +1,8 @@
+X-KIMI-From: adamova-irina@kimi-mimi.com
+X-KIMI-To: gordiig.gorin@yandex.ru
+From: "adamova-irina@kimi-mimi.com" <adamova-irina@kimi-mimi.com>
+To: gordiig.gorin@yandex.ru
+Subject: Hello, world!
+
+Hello, world!
+.

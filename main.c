@@ -13,13 +13,13 @@ int main(int argc, char *argv[]) {
     int loopback;
 //    int loggerExitStatus = 0;
 
-    if (argc != 3) {
+    if (argc != 2) {
         printf("Usage: main [no-loopback/loopback]\n");
         return 1;
     }
-    if (strcmp(argv[2], "loopback") == 0) {
+    if (strcmp(argv[1], "loopback") == 0) {
         loopback = 1;
-    } else if (strcmp(argv[2], "no-loopback") == 0) {
+    } else if (strcmp(argv[1], "no-loopback") == 0) {
         loopback = 0;
     } else  {
         printf("Usage: main [no-loopback/loopback]\n");

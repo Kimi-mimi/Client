@@ -29,7 +29,7 @@ ssize_t readFromFd(SMTPConnection *connection) {
 
     memset(buf, 0, sizeof (buf));
     recvLength = recv(connection->socket, buf, READ_LENGTH, 0);
-    if (recvLength <= 0) {
+    if (recvLength < 0) {
         errno = CERR_RECV;
         errPrint();
         return recvLength;

@@ -158,6 +158,15 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
                 smtpMessageDeinit(self);
                 return NULL;
             }
+        } else {
+            if (stringStripTrailingSymbols(lineString, CRLF, 2) < 0 ||
+                (stringConcat(lineString, &crlfString)) < 0) {
+                errPrint();
+                stringDeinit(lineString);
+                stringDeinit(originalLineString);
+                smtpMessageDeinit(self);
+                return NULL;
+            }
         }
 
         if (currentPrefix == &fromPrefix) {
@@ -184,7 +193,7 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
             slicedLineString = NULL;
         }
 
-        if (stringConcat(self->data, originalLineString) < 0) {
+        if (stringConcat(self->data, lineString) < 0) {
             errPrint();
             stringDeinit(lineString);
             stringDeinit(originalLineString);
