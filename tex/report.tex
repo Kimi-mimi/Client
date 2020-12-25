@@ -171,6 +171,26 @@ SMTP-сессия состоит из команд, посылаемых SMTP-к
 \section{Модульные тесты}
 Для модульного тестирования используется библиотека CUnit. Всего написано 35 тестов с 205 ASSERT-вызовами.
 
+\section{Проверка утечек памяти с помощью valgrind}
+    \begin{verbatim}
+        ==33081== HEAP SUMMARY:
+        ==33081== in use at exit: 962,565 bytes in 14,919 blocks
+        ==33081== total heap usage: 18,623 allocs, 3,704 frees, 1,026,349 bytes allocated
+        ==33081==
+        ==33081== Searching for pointers to 14,919 not-freed blocks
+        ==33081== Checked 14,649,888 bytes
+        ==33081==
+        ==33081== LEAK SUMMARY:
+        ==33081== definitely lost: 0 bytes in 0 blocks
+        ==33081== indirectly lost: 0 bytes in 0 blocks
+        ==33081== possibly lost: 0 bytes in 0 blocks
+        ==33081== still reachable: 944,640 bytes in 14,760 blocks
+        ==33081== suppressed: 17,925 bytes in 159 blocks
+        ==33081== Rerun with —leak-check=full to see details of leaked memory
+        ==33081==
+        ==33081== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 4 from 4)
+    \end{verbatim}
+
 \section{Генерация документации и отчета}
 Отчет и документация генерируются автоматически через Makefile.
 Для этого в Makefile добавлена цель doxygen и report (report также генерирует doxygen).
