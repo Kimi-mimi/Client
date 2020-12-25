@@ -38,6 +38,12 @@ int logCantRmFile(const char* filepath) {
     return logMessage(msg, error);
 }
 
+int logNoConnectionForFdFound(int fd) {
+    char msg[LOG_MESSAGE_SIZE];
+    sprintf(msg, "Can't find connection for fd [%d]", fd);
+    return logMessage(msg, error);
+}
+
 int logResponseForFdAndDomain(int fd, const String *domain, const String *response, const char *command, LogMessageType messageType) {
     char msg[LOG_MESSAGE_SIZE];
     sprintf(msg, "Response on %s for fd [%d](%s): '%s'", command, fd, domain->buf, response->buf);

@@ -31,6 +31,7 @@ int logConnectingTo(const String *domain, const String *host);
 int logError(const char *file, const char *func, int line);
 
 int logCantRmFile(const char* filepath);
+int logNoConnectionForFdFound(int fd);
 
 int logChangeState(int fd, const String *domain, int oldState, const char* oldStateName, int newState, const char* newStateName);
 

@@ -198,7 +198,7 @@ int clientMain(int needLoopback) {
             }
         }
 
-        for (int i = 0; i < FD_SETSIZE; i++) {
+        for (int i = 3; i < FD_SETSIZE; i++) {
             if (!FD_ISSET(i, &readFdSet) && !FD_ISSET(i, &writeFdSet))
                 continue;
 
@@ -209,7 +209,7 @@ int clientMain(int needLoopback) {
 
             currentConnection = smtpConnectionListGetConnectionWithSocket(connectionListHead, i);
             if (!currentConnection) {
-                printf("В списке подключений нет подключения для сокета [%d]\n", i);
+                logNoConnectionForFdFound(i);
                 continue;
             }
 
