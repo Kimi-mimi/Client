@@ -10,7 +10,7 @@
 #include "../bytes/string.h"
 #include "../autogen/fsm-fsm.h"
 
-#define SERVER_PORT                         8282            // Порт сервера
+#define SERVER_PORT                         25              // Порт сервера
 #define SERVER_HOST                         "kimi-mimi.ru"  // Хост сервера
 #define SERVER_HOST_STRING_INITIALIZER      { .buf = SERVER_HOST, .count = 12, .capacity = 12, };
 

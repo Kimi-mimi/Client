@@ -99,6 +99,10 @@ static String *getRecordForHost(const String *host, int type) {
  * @return IP-адрес почтового сервера. и установка порта
  */
 String *getIpByHost(const String *host, int *port, int needConnect) {
+    const String kimiMimiHostNameString = SERVER_HOST_STRING_INITIALIZER;
+    String *mxString = NULL;
+    String *ipString = NULL;
+
     if (!needConnect) {
         String *local = stringInitFromStringBuf("127.0.0.1");
         if (!local) {
@@ -109,13 +113,9 @@ String *getIpByHost(const String *host, int *port, int needConnect) {
         return local;
     }
 
-    const String kimiMimiHostNameString = SERVER_HOST_STRING_INITIALIZER;
-    String *mxString = NULL;
-    String *ipString = NULL;
-
 
     if (stringEqualsTo(host, &kimiMimiHostNameString)) {
-        ipString = stringInitFromStringBuf(SERVER_HOST);
+        ipString = stringInitFromStringBuf("127.0.0.1");
         if (!ipString) {
             errPrint();
             return NULL;

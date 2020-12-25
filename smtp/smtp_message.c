@@ -194,6 +194,15 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
             slicedLineString = NULL;
         }
 
+        if (currentPrefix) {
+            if (stringConcat(lineString, &crlfString) < 0) {
+                errPrint();
+                stringDeinit(lineString);
+                stringDeinit(originalLineString);
+                smtpMessageDeinit(self);
+                return NULL;
+            }
+        }
         if (stringConcat(self->data, lineString) < 0) {
             errPrint();
             stringDeinit(lineString);
