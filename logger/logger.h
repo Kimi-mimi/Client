@@ -21,9 +21,14 @@ typedef struct {
     char message[LOG_MESSAGE_SIZE];
 } LoggerMessage;
 
+#define errPrint() logError(__FILE__, __FUNCTION__, __LINE__)
+
 pid_t loggerMain(void);
 
 int logMessage(const char *message, LogMessageType messageType);
+
+int logConnectingTo(const String *domain, const String *host);
+int logError(const char *file, const char *func, int line);
 
 int logChangeState(int fd, const String *domain, int oldState, const char* oldStateName, int newState, const char* newStateName);
 

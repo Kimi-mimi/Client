@@ -11,8 +11,9 @@
 #include <errno.h>
 #include "../bytes/bytes.h"
 #include "../bytes/string.h"
-#include "smtp_message_queue.h"
+#include "../logger/logger.h"
 #include "../errors/client_errors.h"
+#include "smtp_message_queue.h"
 
 
 /**

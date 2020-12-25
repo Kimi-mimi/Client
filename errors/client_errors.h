@@ -31,8 +31,6 @@
 #define CERR_PIPE                   22
 
 
-#define errPrint() fprintf(stderr, "File \"%s\" -> %s(), line %d\n", __FILE__, __FUNCTION__, __LINE__)
-
 void errorPrint();
 void onError() __attribute__((noreturn));
 

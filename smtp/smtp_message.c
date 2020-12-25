@@ -15,6 +15,7 @@
 #include "../bytes/string.h"
 #include "../bytes/bytes.h"
 #include "../errors/client_errors.h"
+#include "../logger/logger.h"
 #include "smtp_message.h"
 
 /**

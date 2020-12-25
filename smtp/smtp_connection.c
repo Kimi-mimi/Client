@@ -16,6 +16,7 @@
 #include "../errors/client_errors.h"
 #include "../bytes/string.h"
 #include "../bytes/bytes.h"
+#include "../logger/logger.h"
 #include "smtp_command.h"
 #include "smtp_message.h"
 #include "smtp_connection.h"
@@ -68,7 +69,7 @@ static String *getRecordForHost(const String *host, int type) {
         errPrint();
         return NULL;
     }
-    printf("rowBuf: [%s]\n", rowString->buf);
+//    printf("rowBuf: [%s]\n", rowString->buf);
 
     spaceIdx = stringLastIndexInRange(rowString, " \t\0", 3);
     if (spaceIdx == STRING_CHAR_NOT_FOUND)
@@ -144,19 +145,19 @@ String *getIpByHost(const String *host, int *port, int needConnect) {
 /**
  * Создание структуры SMTP-подключения
  * @param domain Домен, к которому нужно подключиться
- * @param connect Нужно ли подключаться через connect()
+ * @param needConnect Нужно ли подключаться через connect()
  * @return SMTP-подключение
  */
-SMTPConnection *smtpConnectionInitEmpty(const String *domain, int connect) {
+SMTPConnection *smtpConnectionInitEmpty(const String *domain, int needConnect) {
     SMTPConnection *new = NULL;
     String *output = NULL;
     String *input = NULL;
     String *newDomain = NULL;
     String *hostIpString = NULL;
+    int socket = 0;
     int port;
-    int socket;
 
-    hostIpString = getIpByHost(domain, &port, connect);
+    hostIpString = getIpByHost(domain, &port, needConnect);
     if (!hostIpString) {
         errPrint();
         return NULL;
@@ -173,17 +174,6 @@ SMTPConnection *smtpConnectionInitEmpty(const String *domain, int connect) {
         return NULL;
     }
 
-    new->host = hostIpString;
-    new->port = port;
-    if (connect) {
-        socket = smtpConnectionReconnect(new, 0);
-        if (socket < 0) {
-            errPrint();
-            stringDeinit(hostIpString);
-            return NULL;
-        }
-    }
-
     if ((newDomain = stringInitCopy(domain)) == NULL) {
         errPrint();
         stringDeinit(input);
@@ -192,10 +182,21 @@ SMTPConnection *smtpConnectionInitEmpty(const String *domain, int connect) {
         return NULL;
     }
 
+    new->domain = newDomain;
+    new->host = hostIpString;
+    new->port = port;
+    if (needConnect) {
+        socket = smtpConnectionReconnect(new, 0);
+        if (socket < 0) {
+            errPrint();
+            stringDeinit(hostIpString);
+            return NULL;
+        }
+    }
+
     new->socket = socket;
     new->messageQueue = NULL;
     new->currentMessage = NULL;
-    new->domain = newDomain;
     new->readBuffer = input;
     new->writeBuffer = output;
     new->sentRcptTos = 0;
@@ -233,6 +234,7 @@ int smtpConnectionReconnect(SMTPConnection *self, int needClose) {
     inet_pton(AF_INET, self->host->buf, &serverAddress.sin_addr);
     serverAddress.sin_port = htons(self->port);
 
+    logConnectingTo(self->domain, self->host);
     if (connect(sock, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0) {
         close(sock);
         errPrint();

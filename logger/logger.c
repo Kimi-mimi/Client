@@ -20,6 +20,18 @@
 
 static int msQueueFd;                               // Дескриптор очереди сообщений
 
+int logConnectingTo(const String *domain, const String *host) {
+    char msg[LOG_MESSAGE_SIZE];
+    sprintf(msg, "Connecting to the %s (%s)", domain->buf, host->buf);
+    return logMessage(msg, info);
+}
+
+int logError(const char *file, const char *func, int line) {
+    char msg[LOG_MESSAGE_SIZE];
+    sprintf(msg, "File \"%s\" -> %s(), line %d", file, func, line);
+    return logMessage(msg, error);
+}
+
 int logResponseForFdAndDomain(int fd, const String *domain, const String *response, const char *command, LogMessageType messageType) {
     char msg[LOG_MESSAGE_SIZE];
     sprintf(msg, "Response on %s for fd [%d](%s): '%s'", command, fd, domain->buf, response->buf);
@@ -191,7 +203,7 @@ pid_t loggerMain(void) {
         onError();
     }
 
-    log(logFile, "[BEGIN] Очередь сообщений создана");
+    log(logFile, "[BEGIN] LOGGER ON");
     messageSize = sizeof(loggerMessage.message);
     while (!quit) {
         memset(&loggerMessage, 0, sizeof(loggerMessage));
@@ -211,7 +223,7 @@ pid_t loggerMain(void) {
             log(logFile, loggerMessage.message);
     }
 
-    log(logFile, "[END] Завершение работы логгера...");
+    log(logFile, "[END] LOGGER IS SHUTTING DOWN...");
     fclose(logFile);
     msgctl(msQueueFd, IPC_RMID, NULL);
     exit(errno);

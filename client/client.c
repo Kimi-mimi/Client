@@ -152,7 +152,9 @@ int clientMain(int needLoopback) {
         if (messagesFromDirLen < 0) {
             errPrint();
             logMessage("Ошибка в чтении сообщений из директории", error);
-        } else if (messagesFromDirLen > 0) {
+        } else if (messagesFromDirLen == 0) {
+            logMessage("No messages to send found", info);
+        } else {
             for (int i = 0; i < messagesFromDirLen; i++) {
                 tmpConnectionListHead = smtpConnectionListAddMessage(connectionListHead, messagesFromDir[i], !needLoopback);
                 if (!tmpConnectionListHead) {

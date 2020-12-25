@@ -4,6 +4,7 @@
 
 #include "../bytes/string.h"
 #include "../errors/client_errors.h"
+#include "../logger/logger.h"
 #include "smtp_command.h"
 
 

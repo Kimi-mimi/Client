@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "../errors/client_errors.h"
+#include "../logger/logger.h"
 #include "../bytes/bytes.h"
 #include "smtp_connection.h"
 #include "smtp_connection_list.h"
