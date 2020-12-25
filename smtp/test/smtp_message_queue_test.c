@@ -25,7 +25,7 @@ int initSuiteSmtpMessageQueue(void) {
         return -1;
     }
     if (initMessage(&msg2) < 0) {
-        smtpMessageDeinit(msg1);
+        smtpMessageDeinit(&msg1);
         return -1;
     }
 
@@ -33,8 +33,8 @@ int initSuiteSmtpMessageQueue(void) {
 }
 
 int cleanupSuiteSmtpMessageQueue(void) {
-    smtpMessageDeinit(msg1);
-    smtpMessageDeinit(msg2);
+    smtpMessageDeinit(&msg1);
+    smtpMessageDeinit(&msg2);
     return 0;
 }
 
@@ -80,11 +80,11 @@ void testPop(void) {
 
     SMTPMessageQueue *e = smtpMessageQueuePop(e1, &msg);
     CU_ASSERT_EQUAL(e, e2)
-    smtpMessageDeinit(msg);
+    smtpMessageDeinit(&msg);
 
     e = smtpMessageQueuePop(e, &msg);
     CU_ASSERT_PTR_NULL(e)
-    smtpMessageDeinit(msg);
+    smtpMessageDeinit(&msg);
 }
 
 int fillSuiteWithTestsSmtpMessageQueue(CU_pSuite suite) {

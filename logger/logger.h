@@ -30,6 +30,8 @@ int logMessage(const char *message, LogMessageType messageType);
 int logConnectingTo(const String *domain, const String *host);
 int logError(const char *file, const char *func, int line);
 
+int logCantRmFile(const char* filepath);
+
 int logChangeState(int fd, const String *domain, int oldState, const char* oldStateName, int newState, const char* newStateName);
 
 int logGoodResponse(int fd, const String *domain, const String *response, const char *command);

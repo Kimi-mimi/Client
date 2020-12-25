@@ -10,7 +10,7 @@
 
 void testStringCreateFromLiteral(void) {
     const char *literal = "12345";
-    const int literalLen = strlen(literal);
+    const int literalLen = (int) strlen(literal);
     String *testingString = NULL;
 
     testingString = stringInitFromStringBuf(literal);
@@ -20,7 +20,7 @@ void testStringCreateFromLiteral(void) {
     for (int i = 0; i <= literalLen; i++)
         CU_ASSERT_EQUAL(testingString->buf[i], literal[i])
 
-    stringDeinit(testingString);
+    stringDeinit(&testingString);
 }
 
 void testStringInitCopy(void) {
@@ -36,8 +36,8 @@ void testStringInitCopy(void) {
     for (int i = 0; i <= firstString->count; i++)
         CU_ASSERT_EQUAL(testingString->buf[i], firstString->buf[i])
 
-    stringDeinit(testingString);
-    stringDeinit(firstString);
+    stringDeinit(&testingString);
+    stringDeinit(&firstString);
 }
 
 void testStringEqualsTo(void) {
@@ -55,10 +55,10 @@ void testStringEqualsTo(void) {
     CU_ASSERT_FALSE(stringEqualsTo(baseString, notEqualString))
     CU_ASSERT_FALSE(stringEqualsTo(baseString, notEqualStringWrongSize))
 
-    stringDeinit(notEqualStringWrongSize);
-    stringDeinit(notEqualString);
-    stringDeinit(equalString);
-    stringDeinit(baseString);
+    stringDeinit(&notEqualStringWrongSize);
+    stringDeinit(&notEqualString);
+    stringDeinit(&equalString);
+    stringDeinit(&baseString);
 }
 
 #define STRING_TEST_CONCAT_FIRST_LITERAL "12345"
@@ -72,36 +72,33 @@ void testStringConcat(void) {
             STRING_TEST_CONCAT_FIRST_LITERAL STRING_TEST_CONCAT_SECOND_LITERAL);
     String *testString = NULL;
 
-    CU_ASSERT_PTR_NOT_NULL_FATAL(firstString);
-    CU_ASSERT_PTR_NOT_NULL_FATAL(secondString);
-    CU_ASSERT_PTR_NOT_NULL_FATAL(emptyString);
-    CU_ASSERT_PTR_NOT_NULL_FATAL(firstAndSecondString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(firstString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(secondString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(emptyString)
+    CU_ASSERT_PTR_NOT_NULL_FATAL(firstAndSecondString)
 
     testString = stringInitCopy(firstString);
-    CU_ASSERT_PTR_NOT_NULL_FATAL(testString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(testString)
     stringConcat(testString, secondString);
-    CU_ASSERT_TRUE(stringEqualsTo(testString, firstAndSecondString));
-    stringDeinit(testString);
-    testString = NULL;
+    CU_ASSERT_TRUE(stringEqualsTo(testString, firstAndSecondString))
+    stringDeinit(&testString);
 
     testString = stringInitCopy(firstString);
-    CU_ASSERT_PTR_NOT_NULL_FATAL(testString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(testString)
     stringConcat(testString, emptyString);
-    CU_ASSERT_TRUE(stringEqualsTo(testString, firstString));
-    stringDeinit(testString);
-    testString = NULL;
+    CU_ASSERT_TRUE(stringEqualsTo(testString, firstString))
+    stringDeinit(&testString);
 
     testString = stringInitCopy(emptyString);
-    CU_ASSERT_PTR_NOT_NULL_FATAL(testString);
+    CU_ASSERT_PTR_NOT_NULL_FATAL(testString)
     stringConcat(testString, secondString);
-    CU_ASSERT_TRUE(stringEqualsTo(testString, secondString));
-    stringDeinit(testString);
-    testString = NULL;
+    CU_ASSERT_TRUE(stringEqualsTo(testString, secondString))
+    stringDeinit(&testString);
 
-    stringDeinit(firstAndSecondString);
-    stringDeinit(emptyString);
-    stringDeinit(secondString);
-    stringDeinit(firstString);
+    stringDeinit(&firstAndSecondString);
+    stringDeinit(&emptyString);
+    stringDeinit(&secondString);
+    stringDeinit(&firstString);
 }
 
 void testStringHasPrefix(void) {
@@ -116,9 +113,9 @@ void testStringHasPrefix(void) {
     CU_ASSERT_TRUE(stringHasPrefix(baseString, substringTrue))
     CU_ASSERT_FALSE(stringHasPrefix(baseString, substringFalse))
 
-    stringDeinit(substringFalse);
-    stringDeinit(substringTrue);
-    stringDeinit(baseString);
+    stringDeinit(&substringFalse);
+    stringDeinit(&substringTrue);
+    stringDeinit(&baseString);
 }
 
 void testStringHasSuffix(void) {
@@ -133,9 +130,9 @@ void testStringHasSuffix(void) {
     CU_ASSERT_TRUE(stringHasSuffix(baseString, substringTrue))
     CU_ASSERT_EQUAL(stringHasSuffix(baseString, substringFalse), STRING_CHAR_NOT_FOUND)
 
-    stringDeinit(substringFalse);
-    stringDeinit(substringTrue);
-    stringDeinit(baseString);
+    stringDeinit(&substringFalse);
+    stringDeinit(&substringTrue);
+    stringDeinit(&baseString);
 }
 
 void testStringContains(void) {
@@ -151,9 +148,9 @@ void testStringContains(void) {
     CU_ASSERT_EQUAL(stringContains(baseString, baseString), 0)
     CU_ASSERT_EQUAL(stringContains(baseString, substringFalse), STRING_CHAR_NOT_FOUND)
 
-    stringDeinit(substringFalse);
-    stringDeinit(substringTrue);
-    stringDeinit(baseString);
+    stringDeinit(&substringFalse);
+    stringDeinit(&substringTrue);
+    stringDeinit(&baseString);
 }
 
 void testStringStripTrailingSymbols(void) {
@@ -168,11 +165,10 @@ void testStringStripTrailingSymbols(void) {
     CU_ASSERT_PTR_NOT_NULL_FATAL(testingString)
     stringStripTrailingSymbols(testingString, "654", 3);
     CU_ASSERT_TRUE(stringEqualsTo(testingString, baseStringAfterStrip5And4))
-    stringDeinit(testingString);
-    testingString = NULL;
+    stringDeinit(&testingString);
 
-    stringDeinit(baseStringAfterStrip5And4);
-    stringDeinit(baseString);
+    stringDeinit(&baseStringAfterStrip5And4);
+    stringDeinit(&baseString);
 }
 
 void testStringReplaceCharactersFromIdxWithLen(void) {
@@ -191,20 +187,18 @@ void testStringReplaceCharactersFromIdxWithLen(void) {
     CU_ASSERT_PTR_NOT_NULL_FATAL(testString)
     stringReplaceCharactersFromIdxWithLen(testString, 0, testString->count, firstStringReversed);
     CU_ASSERT_TRUE(stringEqualsTo(testString, firstStringReversed))
-    stringDeinit(testString);
-    testString = NULL;
+    stringDeinit(&testString);
 
     testString = stringInitCopy(baseString);
     CU_ASSERT_PTR_NOT_NULL_FATAL(testString)
     stringReplaceCharactersFromIdxWithLen(testString, 1, 2, inserteeString);
     CU_ASSERT_TRUE(stringEqualsTo(testString, resultingInsertString))
-    stringDeinit(testString);
-    testString = NULL;
+    stringDeinit(&testString);
 
-    stringDeinit(resultingInsertString);
-    stringDeinit(inserteeString);
-    stringDeinit(firstStringReversed);
-    stringDeinit(baseString);
+    stringDeinit(&resultingInsertString);
+    stringDeinit(&inserteeString);
+    stringDeinit(&firstStringReversed);
+    stringDeinit(&baseString);
 }
 
 void testStringSlice(void) {
@@ -218,17 +212,15 @@ void testStringSlice(void) {
     sliced = stringSlice(baseString, 0, baseString->count);
     CU_ASSERT_PTR_NOT_NULL_FATAL(sliced)
     CU_ASSERT_TRUE(stringEqualsTo(sliced, baseString))
-    stringDeinit(sliced);
-    sliced = NULL;
+    stringDeinit(&sliced);
 
     sliced = stringSlice(baseString, 1, 3);
     CU_ASSERT_PTR_NOT_NULL_FATAL(sliced)
     CU_ASSERT_TRUE(stringEqualsTo(baseStringFirstToThirdIdx, sliced))
-    stringDeinit(sliced);
-    sliced = NULL;
+    stringDeinit(&sliced);
 
-    stringDeinit(baseStringFirstToThirdIdx);
-    stringDeinit(baseString);
+    stringDeinit(&baseStringFirstToThirdIdx);
+    stringDeinit(&baseString);
 }
 
 void testStringLowercaseLatin(void) {
@@ -242,12 +234,12 @@ void testStringLowercaseLatin(void) {
 
     stringLowercaseLatin(upperString);
     stringLowercaseLatin(partiallyUpperString);
-    CU_ASSERT_TRUE(stringEqualsTo(lowerString, upperString));
-    CU_ASSERT_TRUE(stringEqualsTo(lowerString, partiallyUpperString));
+    CU_ASSERT_TRUE(stringEqualsTo(lowerString, upperString))
+    CU_ASSERT_TRUE(stringEqualsTo(lowerString, partiallyUpperString))
 
-    stringDeinit(partiallyUpperString);
-    stringDeinit(upperString);
-    stringDeinit(lowerString);
+    stringDeinit(&partiallyUpperString);
+    stringDeinit(&upperString);
+    stringDeinit(&lowerString);
 }
 
 void testStringUppercaseLatin(void) {
@@ -261,12 +253,12 @@ void testStringUppercaseLatin(void) {
 
     stringUppercaseLatin(lowerString);
     stringUppercaseLatin(partiallyLowerString);
-    CU_ASSERT_TRUE(stringEqualsTo(upperString, lowerString));
-    CU_ASSERT_TRUE(stringEqualsTo(upperString, partiallyLowerString));
+    CU_ASSERT_TRUE(stringEqualsTo(upperString, lowerString))
+    CU_ASSERT_TRUE(stringEqualsTo(upperString, partiallyLowerString))
 
-    stringDeinit(partiallyLowerString);
-    stringDeinit(upperString);
-    stringDeinit(lowerString);
+    stringDeinit(&partiallyLowerString);
+    stringDeinit(&upperString);
+    stringDeinit(&lowerString);
 }
 
 

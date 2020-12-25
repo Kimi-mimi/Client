@@ -34,14 +34,14 @@ SMTPMessage *smtpMessageInit() {
     self->from = stringInitFromStringBuf("");
     if (!self->from) {
         errPrint();
-        smtpMessageDeinit(self);
+        smtpMessageDeinit(&self);
         return NULL;
     }
 
     self->data = stringInitFromStringBuf("");
     if (!self->data) {
         errPrint();
-        smtpMessageDeinit(self);
+        smtpMessageDeinit(&self);
         return NULL;
     }
 
@@ -62,7 +62,7 @@ SMTPMessage *smtpMessageInitCopy(const SMTPMessage *copy) {
             stringConcat(self->from, copy->from) < 0 ||
             stringConcat(self->data, copy->data) < 0) {
         errPrint();
-        smtpMessageDeinit(self);
+        smtpMessageDeinit(&self);
         return NULL;
     }
 
@@ -70,14 +70,14 @@ SMTPMessage *smtpMessageInitCopy(const SMTPMessage *copy) {
     self->recipients = calloc(self->recipientsCount, sizeof(String*));
     if (!self->recipients) {
         errPrint();
-        smtpMessageDeinit(self);
+        smtpMessageDeinit(&self);
         return NULL;
     }
 
     for (int i = 0; i < self->recipientsCount; i++) {
         if ((self->recipients[i] = stringInitCopy(copy->recipients[i])) == NULL) {
             errPrint();
-            smtpMessageDeinit(self);
+            smtpMessageDeinit(&self);
             return NULL;
         }
     }
@@ -106,7 +106,7 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         errPrint();
-        smtpMessageDeinit(self);
+        smtpMessageDeinit(&self);
         return NULL;
     }
 
@@ -122,9 +122,9 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
         if ((lineString = stringInitFromStringBuf(line)) == NULL ||
             (originalLineString = stringInitCopy(lineString)) == NULL) {
             errPrint();
-            stringDeinit(lineString);
-            stringDeinit(originalLineString);
-            smtpMessageDeinit(self);
+            stringDeinit(&lineString);
+            stringDeinit(&originalLineString);
+            smtpMessageDeinit(&self);
             return NULL;
         }
 
@@ -138,34 +138,23 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
                 // https://stackoverflow.com/questions/11794698/max-line-length-in-mail
                 bodyStarted = 1;
                 currentPrefix = NULL;
-            } else {
-                if (stringConcat(self->data, originalLineString) < 0) {
-                    errPrint();
-                    stringDeinit(lineString);
-                    stringDeinit(originalLineString);
-                    smtpMessageDeinit(self);
-                    return NULL;
-                }
-                continue;
             }
         }
 
-        if (!bodyStarted) {
-            if (stringStripTrailingSymbols(lineString, CRLF, 2) < 0 ||
-                    (slicedLineString = stringSlice(lineString, currentPrefix->count, lineString->count)) == NULL) {
+        if (stringStripTrailingSymbols(lineString, CRLF, 2) < 0) {
+            errPrint();
+            stringDeinit(&lineString);
+            stringDeinit(&originalLineString);
+            smtpMessageDeinit(&self);
+            return NULL;
+        }
+
+        if (currentPrefix) {
+            if ((slicedLineString = stringSlice(lineString, currentPrefix->count, lineString->count)) == NULL) {
                 errPrint();
-                stringDeinit(lineString);
-                stringDeinit(originalLineString);
-                smtpMessageDeinit(self);
-                return NULL;
-            }
-        } else {
-            if (stringStripTrailingSymbols(lineString, CRLF, 2) < 0 ||
-                (stringConcat(lineString, &crlfString)) < 0) {
-                errPrint();
-                stringDeinit(lineString);
-                stringDeinit(originalLineString);
-                smtpMessageDeinit(self);
+                stringDeinit(&lineString);
+                stringDeinit(&originalLineString);
+                smtpMessageDeinit(&self);
                 return NULL;
             }
         }
@@ -175,49 +164,46 @@ SMTPMessage *smtpMessageInitFromFile(const char* filename) {
             stringClear(self->from);
             if (stringConcat(self->from, slicedLineString) < 0) {
                 errPrint();
-                stringDeinit(lineString);
-                stringDeinit(originalLineString);
-                smtpMessageDeinit(self);
+                stringDeinit(&slicedLineString);
+                stringDeinit(&lineString);
+                stringDeinit(&originalLineString);
+                smtpMessageDeinit(&self);
                 return NULL;
             }
         } else if (currentPrefix == &toPrefix) {
             stringLowercaseLatin(slicedLineString);
             if (smtpMessageAddRecipient(self, slicedLineString) < 0) {
                 errPrint();
-                stringDeinit(slicedLineString);
-                stringDeinit(lineString);
-                stringDeinit(originalLineString);
-                smtpMessageDeinit(self);
+                stringDeinit(&slicedLineString);
+                stringDeinit(&lineString);
+                stringDeinit(&originalLineString);
+                smtpMessageDeinit(&self);
                 return NULL;
             }
-            stringDeinit(slicedLineString);
-            slicedLineString = NULL;
+            stringDeinit(&slicedLineString);
         }
 
-        if (currentPrefix) {
-            if (stringConcat(lineString, &crlfString) < 0) {
-                errPrint();
-                stringDeinit(lineString);
-                stringDeinit(originalLineString);
-                smtpMessageDeinit(self);
-                return NULL;
-            }
-        }
-        if (stringConcat(self->data, lineString) < 0) {
+        if (stringConcat(lineString, &crlfString) < 0) {
             errPrint();
-            stringDeinit(lineString);
-            stringDeinit(originalLineString);
-            smtpMessageDeinit(self);
+            stringDeinit(&lineString);
+            stringDeinit(&originalLineString);
+            smtpMessageDeinit(&self);
             return NULL;
         }
 
-        stringDeinit(slicedLineString);
-        slicedLineString = NULL;
-        stringDeinit(lineString);
-        lineString = NULL;
-        stringDeinit(originalLineString);
-        originalLineString = NULL;
+        if (stringConcat(self->data, lineString) < 0) {
+            errPrint();
+            stringDeinit(&lineString);
+            stringDeinit(&originalLineString);
+            smtpMessageDeinit(&self);
+            return NULL;
+        }
+
+        stringDeinit(&slicedLineString);
+        stringDeinit(&lineString);
+        stringDeinit(&originalLineString);
         memset(line, 0, lineLen);
+        currentPrefix = NULL;
     }
 
     return self;
@@ -233,7 +219,7 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
     DIR *d;
     struct dirent *dir;
     SMTPMessage **ans = NULL;
-    String *dirnameString;
+    String *dirnameString = NULL;
     *messagesNumber = 0;
 
     d = opendir(dirname);
@@ -247,6 +233,7 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
     if ((dirnameString = stringInitFromStringBuf(dirname)) == NULL ||
             stringStripTrailingSymbols(dirnameString, "/", 1) < 0) {
         errPrint();
+        stringDeinit(&dirnameString);
         closedir(d);
         *messagesNumber = -1;
         return NULL;
@@ -263,12 +250,12 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
         if ((path = stringInitCopy(dirnameString)) == NULL ||
                 stringConcat(path, &slashString) < 0) {
             errPrint();
-            stringDeinit(path);
+            stringDeinit(&path);
             for (int i = 0; i < *messagesNumber; i++) {
-                smtpMessageDeinit(ans[i]);
+                smtpMessageDeinit(&ans[i]);
             }
             freeAndNull(ans);
-            stringDeinit(dirnameString);
+            stringDeinit(&dirnameString);
             closedir(d);
             *messagesNumber = -1;
             return NULL;
@@ -277,13 +264,13 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
         if ((filenameString = stringInitFromStringBuf(dir->d_name)) == NULL ||
                 stringConcat(path, filenameString) < 0) {
             errPrint();
-            stringDeinit(path);
-            stringDeinit(filenameString);
+            stringDeinit(&filenameString);
+            stringDeinit(&path);
             for (int i = 0; i < *messagesNumber; i++) {
-                smtpMessageDeinit(ans[i]);
+                smtpMessageDeinit(&ans[i]);
             }
             freeAndNull(ans);
-            stringDeinit(dirnameString);
+            stringDeinit(&dirnameString);
             closedir(d);
             *messagesNumber = -1;
             return NULL;
@@ -294,14 +281,14 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
         if (!current || !tmp) {
             errPrint();
             freeAndNull(tmp);
-            smtpMessageDeinit(current);
-            stringDeinit(path);
-            stringDeinit(filenameString);
+            smtpMessageDeinit(&current);
+            stringDeinit(&filenameString);
+            stringDeinit(&path);
             for (int i = 0; i < *messagesNumber; i++) {
-                smtpMessageDeinit(ans[i]);
+                smtpMessageDeinit(&ans[i]);
             }
             freeAndNull(ans);
-            stringDeinit(dirnameString);
+            stringDeinit(&dirnameString);
             closedir(d);
             *messagesNumber = -1;
             return NULL;
@@ -310,22 +297,19 @@ SMTPMessage **smtpMessageInitFromDir(const char* dirname, int *messagesNumber) {
         memcpy(tmp, ans, *messagesNumber * sizeof(SMTPMessage*));
         tmp[*messagesNumber] = current;
         current = NULL;
-//        for (int i = 0; i < *messagesNumber; i++) {
-//            freeAndNull(ans[i]);
-//        }
         freeAndNull(ans);
         ans = tmp;
         tmp = NULL;
         if (remove(path->buf) != 0) {
-            printf("Can't delete file %s\n", path->buf);
+            logCantRmFile(path->buf);
         }
-        stringDeinit(path);
-        stringDeinit(filenameString);
+        stringDeinit(&path);
+        stringDeinit(&filenameString);
         *messagesNumber += 1;
     }
 
     closedir(d);
-    stringDeinit(dirnameString);
+    stringDeinit(&dirnameString);
     return ans;
 }
 
@@ -353,7 +337,7 @@ int smtpMessageAddRecipient(SMTPMessage *self, String *recipient) {
     if (!buf) {
         errno = CERR_MEM_ALLOC;
         errPrint();
-        freeAndNull(newRecipient);
+        stringDeinit(&newRecipient);
         return -1;
     }
     buf[self->recipientsCount] = newRecipient;
@@ -383,7 +367,7 @@ String *smtpMessageGetAnyHeader(const char* headerName, const String *headerData
     if (stringConcat(ans, &colonString) < 0 ||
             stringConcat(ans, headerData) < 0) {
         errPrint();
-        stringDeinit(ans);
+        stringDeinit(&ans);
         return NULL;
     }
 
@@ -446,7 +430,7 @@ String **smtpMessageGetRecipientsDomainsDistinct(const SMTPMessage *self, size_t
         if (!cur) {
             errPrint();
             for (int j = 0; j < *domainsNum; j++)
-                stringDeinit(ans[j]);
+                stringDeinit(&ans[j]);
             freeAndNull(ans);
             return NULL;
         }
@@ -459,8 +443,7 @@ String **smtpMessageGetRecipientsDomainsDistinct(const SMTPMessage *self, size_t
         }
         if (needContinue) {
             needContinue = 0;
-            stringDeinit(cur);
-            cur = NULL;
+            stringDeinit(&cur);
             continue;
         }
 
@@ -468,8 +451,8 @@ String **smtpMessageGetRecipientsDomainsDistinct(const SMTPMessage *self, size_t
         if (!tmpAns) {
             errPrint();
             for (int j = 0; j < *domainsNum; j++)
-                stringDeinit(ans[j]);
-            stringDeinit(cur);
+                stringDeinit(&ans[j]);
+            stringDeinit(&cur);
             freeAndNull(ans);
             return NULL;
         }
@@ -512,17 +495,16 @@ String *smtpMessageGetFromHeader(const SMTPMessage *self) {
  * Деструктор SMTP-сообщения
  * @param self SMTP-сообщение
  */
-void smtpMessageDeinit(SMTPMessage *self) {
-    if (!self)
+void smtpMessageDeinit(SMTPMessage **self) {
+    if (!(*self))
         return;
 
-    stringDeinit(self->data);
-    stringDeinit(self->from);
-    for (int i = 0; i > self->recipientsCount; i++) {
-        stringDeinit(self->recipients[i]);
+    stringDeinit(&(*self)->data);
+    stringDeinit(&(*self)->from);
+    for (int i = 0; i > (*self)->recipientsCount; i++) {
+        stringDeinit(&(*self)->recipients[i]);
     }
-    freeAndNull(self->recipients);
-    self->recipients = 0;
-
-    freeAndNull(self);
+    freeAndNull((*self)->recipients);
+    (*self)->recipients = 0;
+    freeAndNull(*self);
 }

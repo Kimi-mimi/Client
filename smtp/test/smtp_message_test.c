@@ -74,19 +74,19 @@ static int fillSmtpMessage() {
             stringConcat(message->from, from) < 0 ||
             (message->recipients[0] = stringInitCopy(to)) == NULL ||
             stringConcat(message->data, msg) < 0) {
-        stringDeinit(from);
-        stringDeinit(to);
-        stringDeinit(subj);
-        stringDeinit(msg);
-        smtpMessageDeinit(message);
+        stringDeinit(&from);
+        stringDeinit(&to);
+        stringDeinit(&subj);
+        stringDeinit(&msg);
+        smtpMessageDeinit(&message);
         return -1;
     }
 
     message->recipientsCount = 1;
-    stringDeinit(from);
-    stringDeinit(to);
-    stringDeinit(subj);
-    stringDeinit(msg);
+    stringDeinit(&from);
+    stringDeinit(&to);
+    stringDeinit(&subj);
+    stringDeinit(&msg);
     return 0;
 }
 
@@ -110,8 +110,7 @@ int initSuiteSmtpMessage(void) {
 
 int cleanupSuiteSmtpMessage(void) {
     rmdir(testDirName);
-    smtpMessageDeinit(message);
-    message = NULL;
+    smtpMessageDeinit(&message);
     return 0;
 }
 
@@ -124,9 +123,9 @@ void testInitFromFile(void) {
     String *fromHeader = smtpMessageGetFromHeader(testMessage);
     CU_ASSERT_PTR_NOT_NULL_FATAL(fromHeader)
     CU_ASSERT_EQUAL(strcmp(fromHeader->buf, file1XFrom), 0)
-    stringDeinit(fromHeader);
+    stringDeinit(&fromHeader);
 
-    smtpMessageDeinit(testMessage);
+    smtpMessageDeinit(&testMessage);
 }
 
 void testInitFromDir(void) {
@@ -136,7 +135,7 @@ void testInitFromDir(void) {
     CU_ASSERT_EQUAL_FATAL(messagesCount, 2)
 
     for (int i = 0; i < messagesCount; i++) {
-        smtpMessageDeinit(testMessages[i]);
+        smtpMessageDeinit(&testMessages[i]);
     }
     if (testMessages) {
         free(testMessages);
@@ -152,7 +151,7 @@ void testAddRecipient(void) {
     CU_ASSERT_EQUAL_FATAL(addResult, 2)
     CU_ASSERT_EQUAL(message->recipientsCount, 2)
 
-    stringDeinit(recipient);
+    stringDeinit(&recipient);
 }
 
 void testGetDomainFromEmailAddress(void) {
@@ -165,9 +164,9 @@ void testGetDomainFromEmailAddress(void) {
     CU_ASSERT_PTR_NOT_NULL(domain)
     CU_ASSERT_EQUAL(stringEqualsTo(domainPerfect, domain), 1)
 
-    stringDeinit(emailAddress);
-    stringDeinit(domainPerfect);
-    stringDeinit(domain);
+    stringDeinit(&emailAddress);
+    stringDeinit(&domainPerfect);
+    stringDeinit(&domain);
 }
 
 void testGetRecipientsDomainsDistinct(void) {
@@ -178,7 +177,7 @@ void testGetRecipientsDomainsDistinct(void) {
         String *recipient = stringInitFromStringBuf(file1XTo);
         CU_ASSERT_PTR_NOT_NULL_FATAL(recipient)
         CU_ASSERT_EQUAL_FATAL(smtpMessageAddRecipient(message, recipient), 0)
-        stringDeinit(recipient);
+        stringDeinit(&recipient);
     }
 
     domains = smtpMessageGetRecipientsDomainsDistinct(message, &domainsCount);
@@ -186,7 +185,7 @@ void testGetRecipientsDomainsDistinct(void) {
     CU_ASSERT_EQUAL(domainsCount, 1)
 
     for (int i = 0; i < domainsCount; i++) {
-        stringDeinit(domains[i]);
+        stringDeinit(&domains[i]);
     }
     if (domains) {
         free(domains);

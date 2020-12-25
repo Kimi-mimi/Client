@@ -76,18 +76,18 @@ static String *getRecordForHost(const String *host, int type) {
         errno = CERR_INVALID_ARG;
     if (spaceIdx < 0) {
         errPrint();
-        stringDeinit(rowString);
+        stringDeinit(&rowString);
         return NULL;
     }
 
     recordString = stringSlice(rowString, spaceIdx + 1, rowString->count);
     if (!recordString) {
         errPrint();
-        stringDeinit(rowString);
+        stringDeinit(&rowString);
         return NULL;
     }
 
-    stringDeinit(rowString);
+    stringDeinit(&rowString);
     return recordString;
 }
 
@@ -133,11 +133,11 @@ String *getIpByHost(const String *host, int *port, int needConnect) {
     ipString = getRecordForHost(mxString, ns_t_a);
     if (!ipString) {
         errPrint();
-        stringDeinit(mxString);
+        stringDeinit(&mxString);
         return NULL;
     }
 
-    stringDeinit(mxString);
+    stringDeinit(&mxString);
     *port = 25;
     return ipString;
 }
@@ -157,39 +157,41 @@ SMTPConnection *smtpConnectionInitEmpty(const String *domain, int needConnect) {
     int socket = 0;
     int port;
 
-    hostIpString = getIpByHost(domain, &port, needConnect);
-    if (!hostIpString) {
-        errPrint();
-        return NULL;
-    }
-
     if ((new = calloc(1, sizeof(SMTPConnection))) == NULL ||
             (output = stringInit("", 0)) == NULL ||
             (input = stringInit("", 0)) == NULL) {
         errno = CERR_MEM_ALLOC;
         errPrint();
-        stringDeinit(input);
-        stringDeinit(output);
-        smtpConnectionDeinit(new, 1);
+        stringDeinit(&input);
+        stringDeinit(&output);
+        smtpConnectionDeinit(&new, 0);
         return NULL;
     }
+    new->writeBuffer = output;
+    new->readBuffer = input;
 
-    if ((newDomain = stringInitCopy(domain)) == NULL) {
+    hostIpString = getIpByHost(domain, &port, needConnect);
+    if (!hostIpString) {
         errPrint();
-        stringDeinit(input);
-        stringDeinit(output);
-        smtpConnectionDeinit(new, 1);
+        smtpConnectionDeinit(&new, 0);
         return NULL;
     }
-
-    new->domain = newDomain;
     new->host = hostIpString;
     new->port = port;
+
+    newDomain = stringInitCopy(domain);
+    if (!newDomain) {
+        errPrint();
+        smtpConnectionDeinit(&new, 0);
+        return NULL;
+    }
+    new->domain = newDomain;
+
     if (needConnect) {
         socket = smtpConnectionReconnect(new, 0);
         if (socket < 0) {
             errPrint();
-            stringDeinit(hostIpString);
+            smtpConnectionDeinit(&new, 0);
             return NULL;
         }
     }
@@ -197,8 +199,6 @@ SMTPConnection *smtpConnectionInitEmpty(const String *domain, int needConnect) {
     new->socket = socket;
     new->messageQueue = NULL;
     new->currentMessage = NULL;
-    new->readBuffer = input;
-    new->writeBuffer = output;
     new->sentRcptTos = 0;
     new->connState = FSM_ST_CONNECTING;
     return new;
@@ -220,8 +220,10 @@ int smtpConnectionReconnect(SMTPConnection *self, int needClose) {
         return -1;
     }
 
-    if (needClose)
+    if (needClose) {
         close(self->socket);
+        self->socket = 0;
+    }
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -236,12 +238,12 @@ int smtpConnectionReconnect(SMTPConnection *self, int needClose) {
 
     logConnectingTo(self->domain, self->host);
     if (connect(sock, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) < 0) {
-        close(sock);
         errPrint();
         errno = CERR_CONNECT;
         return -1;
     }
 
+    self->socket = sock;
     return sock;
 }
 
@@ -318,8 +320,7 @@ int smtpConnectionClearCurrentMessage(SMTPConnection *self) {
         return -1;
     }
 
-    smtpMessageDeinit(self->currentMessage);
-    self->currentMessage = NULL;
+    smtpMessageDeinit(&self->currentMessage);
     return 0;
 }
 
@@ -364,7 +365,7 @@ String *smtpConnectionGetLatestMessageFromReadBuf(SMTPConnection *self, int *exc
                                               &emptyString) < 0) {
         errPrint();
         *exception = 1;
-        stringDeinit(message);
+        stringDeinit(&message);
         return NULL;
     }
 
@@ -376,18 +377,22 @@ String *smtpConnectionGetLatestMessageFromReadBuf(SMTPConnection *self, int *exc
  * @param self SMTP-подключение
  * @param needClose Нужно ли закрывать сокет
  */
-void smtpConnectionDeinit(SMTPConnection *self, int needClose) {
-    if (!self)
+void smtpConnectionDeinit(SMTPConnection **self, int needClose) {
+    if (!(*self))
         return;
 
-    stringDeinit(self->host);
-    stringDeinit(self->domain);
-    stringDeinit(self->writeBuffer);
-    stringDeinit(self->readBuffer);
-    smtpMessageDeinit(self->currentMessage);
-    smtpMessageQueueDeinitQueue(self->messageQueue);
+    stringDeinit(&(*self)->host);
+    stringDeinit(&(*self)->domain);
+    stringDeinit(&(*self)->writeBuffer);
+    stringDeinit(&(*self)->readBuffer);
+    smtpMessageDeinit(&(*self)->currentMessage);
+    smtpMessageQueueDeinitQueue((*self)->messageQueue);
+    (*self)->messageQueue = NULL;
     if (needClose) {
-        close(self->socket);
+        close((*self)->socket);
     }
-    freeAndNull(self);
+    (*self)->socket = 0;
+    (*self)->port = 0;
+    (*self)->sentRcptTos = 0;
+    freeAndNull(*self);
 }

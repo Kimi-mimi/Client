@@ -26,6 +26,6 @@ String **smtpMessageGetRecipientsDomainsDistinct(const SMTPMessage *self, size_t
 
 String *smtpMessageGetFromHeader(const SMTPMessage *self);
 
-void smtpMessageDeinit(SMTPMessage *self);
+void smtpMessageDeinit(SMTPMessage **self);
 
 #endif //CLIENT_SMTP_MESSAGE_H

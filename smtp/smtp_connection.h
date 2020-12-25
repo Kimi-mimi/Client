@@ -43,6 +43,6 @@ int smtpConnectionClearCurrentMessage(SMTPConnection *self);
 
 String *smtpConnectionGetLatestMessageFromReadBuf(SMTPConnection *self, int *exception);
 
-void smtpConnectionDeinit(SMTPConnection *self, int needClose);
+void smtpConnectionDeinit(SMTPConnection **self, int needClose);
 
 #endif //CLIENT_SMTP_CONNECTION_H

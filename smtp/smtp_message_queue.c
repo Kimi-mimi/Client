@@ -34,7 +34,8 @@ SMTPMessageQueue *smtpMessageQueueInit(const SMTPMessage *message) {
     ans->message = smtpMessageInitCopy(message);
     if (!ans->message) {
         errPrint();
-        freeAndNull(ans);
+        smtpMessageQueueDeinitNode(ans);
+        ans = NULL;
         return NULL;
     }
 
@@ -118,8 +119,7 @@ void smtpMessageQueueDeinitNode(SMTPMessageQueue *node) {
     if (!node)
         return;
 
-    smtpMessageDeinit(node->message);
-    node->message = NULL;
+    smtpMessageDeinit(&node->message);
     node->next = NULL;
     freeAndNull(node);
 }

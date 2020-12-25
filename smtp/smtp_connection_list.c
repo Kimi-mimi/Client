@@ -40,8 +40,7 @@ SMTPConnectionList *smtpConnectionListInitEmptyNode() {
  */
 static void deinitSmtpConnectionListNode(SMTPConnectionList *node, int needClose) {
     node->next = NULL;
-    smtpConnectionDeinit(node->connection, needClose);
-    node->connection = NULL;
+    smtpConnectionDeinit(&node->connection, needClose);
     freeAndNull(node);
 }
 
@@ -110,7 +109,7 @@ SMTPConnectionList *smtpConnectionListAddMessage(SMTPConnectionList *head, const
 
             newHead = smtpConnectionListAddConnectionToList(newHead, connToAddMessage);
             if (!newHead) {
-                smtpConnectionDeinit(connToAddMessage, 1);
+                smtpConnectionDeinit(&connToAddMessage, 1);
                 errPrint();
                 break;
             }
@@ -128,7 +127,7 @@ SMTPConnectionList *smtpConnectionListAddMessage(SMTPConnectionList *head, const
     }
 
     for (int i = 0; i < domainsNumber; i++)
-        stringDeinit(domains[i]);
+        stringDeinit(&domains[i]);
     freeAndNull(domains);
     return newHead;
 }
@@ -209,5 +208,6 @@ void smtpConnectionListDeinitList(SMTPConnectionList *head, int needClose) {
         cur = head;
         head = head->next;
         deinitSmtpConnectionListNode(cur, needClose);
+        cur = NULL;
     }
 }

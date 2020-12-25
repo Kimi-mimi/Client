@@ -33,15 +33,15 @@ static SMTPConnection *getDummyConnection(const char *domain) {
             (ans = smtpConnectionInitEmpty(domainStr, 0)) == NULL) {
         smtpMessageQueueDeinitNode(q1);
         smtpMessageQueueDeinitNode(q2);
-        smtpConnectionDeinit(ans, 0);
+        smtpConnectionDeinit(&ans, 0);
         return NULL;
     }
 
     q1->next = q2;
     ans->messageQueue = q1;
-    stringDeinit(domainStr);
-    smtpMessageDeinit(m1);
-    smtpMessageDeinit(m2);
+    stringDeinit(&domainStr);
+    smtpMessageDeinit(&m1);
+    smtpMessageDeinit(&m2);
 
     return ans;
 }
@@ -56,8 +56,8 @@ static SMTPConnectionList *getDummySmtpConnectionList() {
             (second = getDummyConnection(domain2)) == NULL ||
             (firstList = smtpConnectionListInitEmptyNode()) == NULL ||
             (secondList = smtpConnectionListInitEmptyNode()) == NULL) {
-        smtpConnectionDeinit(first, 0);
-        smtpConnectionDeinit(second, 0);
+        smtpConnectionDeinit(&first, 0);
+        smtpConnectionDeinit(&second, 0);
         smtpConnectionListDeinitList(firstList, 0);
         smtpConnectionListDeinitList(secondList, 0);
         return NULL;
@@ -109,23 +109,20 @@ void testGetConnectionWithDomain(void) {
     temp = smtpConnectionListGetConnectionWithDomain(head, domain);
     CU_ASSERT_PTR_NOT_NULL(temp)
     CU_ASSERT_EQUAL(temp, head->connection)
-    stringDeinit(domain);
-    domain = NULL;
+    stringDeinit(&domain);
 
     domain = stringInitFromStringBuf(domain2);
     CU_ASSERT_PTR_NOT_NULL_FATAL(domain)
     temp = smtpConnectionListGetConnectionWithDomain(head, domain);
     CU_ASSERT_PTR_NOT_NULL(temp)
     CU_ASSERT_EQUAL(temp, head->next->connection)
-    stringDeinit(domain);
-    domain = NULL;
+    stringDeinit(&domain);
 
     domain = stringInitFromStringBuf(domainFalse);
     CU_ASSERT_PTR_NOT_NULL_FATAL(domain)
     temp = smtpConnectionListGetConnectionWithDomain(head, domain);
     CU_ASSERT_PTR_NULL(temp)
-    stringDeinit(domain);
-    domain = NULL;
+    stringDeinit(&domain);
 
     smtpConnectionListDeinitList(head, 0);
 }
@@ -145,8 +142,8 @@ void testAddMessage(void) {
     CU_ASSERT_TRUE(smtpMessageAddRecipient(msg, address) > 0)
     smtpConnectionListAddMessage(head, msg, 1);
     CU_ASSERT_TRUE(smtpMessageQueueCount(head->connection->messageQueue) > queueLen)
-    stringDeinit(address);
-    smtpMessageDeinit(msg);
+    stringDeinit(&address);
+    smtpMessageDeinit(&msg);
 
     smtpConnectionListDeinitList(head, 0);
 }

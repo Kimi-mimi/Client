@@ -30,10 +30,10 @@ te_fsm_state needRset(SMTPConnection* connection, void **head, const String *res
     changeState(connection, oldStateName, FSM_ST_SENDING_RSET, newStateName);
     String* rsetCommand = getRSETCommand();
     if (!rsetCommand || stringConcat(connection->writeBuffer, rsetCommand) < 0) {
-        stringDeinit(rsetCommand);
+        stringDeinit(&rsetCommand);
         return fsm_step(connection->connState, FSM_EV_INTERNAL_ERROR, (void **) head, connection, response, readFd, writeFd);
     }
-    stringDeinit(rsetCommand);
+    stringDeinit(&rsetCommand);
     FD_SET(connection->socket, writeFd);
     return FSM_ST_SENDING_RSET;
 }
@@ -68,9 +68,6 @@ te_fsm_state closeConnection(SMTPConnection *connection, void **head, const Stri
     FD_CLR(connection->socket, readFd);
     FD_CLR(connection->socket, writeFd);
     SMTPConnectionList *newHead = smtpConnectionListRemoveAndDeinitConnectionWithSocket(*head, connection->socket, 1);
-    if (!newHead) {
-        // TODO
-    }
     *head = newHead;
     return FSM_ST_CLOSED;
 }
@@ -84,10 +81,10 @@ te_fsm_state decidedTo(te_fsm_state maybe_next, SMTPConnection* connection, void
                  command->buf);
     changeState(smtpConnection, oldStateName, maybe_next, newStateName);
     if (stringConcat(smtpConnection->writeBuffer, command) < 0) {
-        stringDeinit(command);
+        stringDeinit(&command);
         return fsm_step(connection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFd, writeFd);
     }
-    stringDeinit(command);
+    stringDeinit(&command);
     FD_SET(smtpConnection->socket, writeFd);
     return maybe_next;
 }

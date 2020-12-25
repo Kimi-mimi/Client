@@ -47,6 +47,6 @@ String *stringSlice(const String *self, int from, int to);
 int stringEqualsTo(const String *self, const String *another);
 
 void stringClear(String *self);
-void stringDeinit(String *self);
+void stringDeinit(String **self);
 
 #endif //CLIENT_STRING_H

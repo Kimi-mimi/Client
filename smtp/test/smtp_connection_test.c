@@ -41,18 +41,18 @@ static SMTPConnection *getDummyConnection() {
             stringConcat(ans->writeBuffer, writeStr) < 0) {
         smtpMessageQueueDeinitNode(q1);
         smtpMessageQueueDeinitNode(q2);
-        smtpConnectionDeinit(ans, 0);
+        smtpConnectionDeinit(&ans, 0);
         return NULL;
     }
 
     q1->next = q2;
     ans->messageQueue = q1;
-    stringDeinit(domainStr);
-    stringDeinit(read1Str);
-    stringDeinit(read2Str);
-    stringDeinit(writeStr);
-    smtpMessageDeinit(m1);
-    smtpMessageDeinit(m2);
+    stringDeinit(&domainStr);
+    stringDeinit(&read1Str);
+    stringDeinit(&read2Str);
+    stringDeinit(&writeStr);
+    smtpMessageDeinit(&m1);
+    smtpMessageDeinit(&m2);
 
     return ans;
 }
@@ -73,7 +73,7 @@ void testNeedToWrite(void) {
     CU_ASSERT_EQUAL(stringReplaceCharactersFromIdxWithLen(conn->writeBuffer, 0, conn->writeBuffer->count, &emptyStr), 0)
     CU_ASSERT_FALSE(smtpConnectionIsNeedToWrite(conn))
 
-    smtpConnectionDeinit(conn, 0);
+    smtpConnectionDeinit(&conn, 0);
 }
 
 void testIsHaveMoreMessages(void) {
@@ -87,7 +87,7 @@ void testIsHaveMoreMessages(void) {
     CU_ASSERT_FALSE(smtpConnectionIsHaveMoreMessages(conn))
 
     smtpMessageQueueDeinitQueue(head);
-    smtpConnectionDeinit(conn, 0);
+    smtpConnectionDeinit(&conn, 0);
 }
 
 void testPushMessage(void) {
@@ -102,7 +102,7 @@ void testPushMessage(void) {
     CU_ASSERT_EQUAL(smtpConnectionPushMessage(conn, dummyMessage), 0)
     CU_ASSERT_EQUAL(smtpMessageQueueCount(conn->messageQueue), 3)
 
-    smtpConnectionDeinit(conn, 0);
+    smtpConnectionDeinit(&conn, 0);
 }
 
 void testSetCurrentMessage(void) {
@@ -118,17 +118,17 @@ void testSetCurrentMessage(void) {
     CU_ASSERT_PTR_NOT_NULL(conn->currentMessage)
     CU_ASSERT_EQUAL(smtpMessageQueueCount(conn->messageQueue), 1)
     CU_ASSERT_EQUAL(conn->currentMessage, msgPtr)
-    smtpMessageDeinit(conn->currentMessage);
+    smtpMessageDeinit(&conn->currentMessage);
 
     msgPtr = conn->messageQueue->message;
     CU_ASSERT_EQUAL(smtpConnectionSetCurrentMessage(conn), 0)
     CU_ASSERT_PTR_NOT_NULL(conn->currentMessage)
     CU_ASSERT_EQUAL(smtpMessageQueueCount(conn->messageQueue), 0)
     CU_ASSERT_EQUAL(conn->currentMessage, msgPtr)
-    smtpMessageDeinit(conn->currentMessage);
+    smtpMessageDeinit(&conn->currentMessage);
 
     conn->currentMessage = NULL;
-    smtpConnectionDeinit(conn, 0);
+    smtpConnectionDeinit(&conn, 0);
 }
 
 void testClearCurrentMessage(void) {
@@ -143,7 +143,7 @@ void testClearCurrentMessage(void) {
     smtpConnectionClearCurrentMessage(conn);
     CU_ASSERT_PTR_NULL(conn->currentMessage)
 
-    smtpConnectionDeinit(conn, 0);
+    smtpConnectionDeinit(&conn, 0);
 }
 
 void testGetLatestMessageFromReadBuf(void) {
@@ -156,21 +156,19 @@ void testGetLatestMessageFromReadBuf(void) {
     CU_ASSERT_PTR_NOT_NULL(message)
     CU_ASSERT_FALSE(exc)
     CU_ASSERT_EQUAL(strcmp(messageInReadBuf1, message->buf), 0)
-    stringDeinit(message);
-    message = NULL;
+    stringDeinit(&message);
 
     message = smtpConnectionGetLatestMessageFromReadBuf(conn, &exc);
     CU_ASSERT_PTR_NOT_NULL(message)
     CU_ASSERT_FALSE(exc)
     CU_ASSERT_EQUAL(strcmp(messageInReadBuf2, message->buf), 0)
-    stringDeinit(message);
-    message = NULL;
+    stringDeinit(&message);
 
     message = smtpConnectionGetLatestMessageFromReadBuf(conn, &exc);
     CU_ASSERT_PTR_NULL(message)
     CU_ASSERT_FALSE(exc)
 
-    smtpConnectionDeinit(conn, 0);
+    smtpConnectionDeinit(&conn, 0);
 }
 
 int fillSuiteWithTestsSmtpConnection(CU_pSuite suite) {

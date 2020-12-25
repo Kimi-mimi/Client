@@ -49,7 +49,7 @@ String *getMAILFROMCommand(const String *fromAddress) {
             stringConcat(command, &closeDiamondString) < 0 ||
             stringConcat(command, &crlfString) < 0) {
         errPrint();
-        stringDeinit(command);
+        stringDeinit(&command);
         return NULL;
     }
 
@@ -73,7 +73,7 @@ String *getRCPTTOCommand(const String *recipientAddress) {
             stringConcat(command, &closeDiamondString) < 0 ||
             stringConcat(command, &crlfString) < 0) {
         errPrint();
-        stringDeinit(command);
+        stringDeinit(&command);
         return NULL;
     }
 

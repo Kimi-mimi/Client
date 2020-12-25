@@ -474,10 +474,10 @@ fsm_do_connect_success(
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next,  FSM_STATE_NAME(maybe_next));
     String *heloCommand = getHELOCommand();
     if (!heloCommand || stringConcat(smtpConnection->writeBuffer, heloCommand) < 0) {
-        stringDeinit(heloCommand);
+        stringDeinit(&heloCommand);
         return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
     }
-    stringDeinit(heloCommand);
+    stringDeinit(&heloCommand);
     FD_SET(smtpConnection->socket, (struct fd_set*) writeFdSet);
     return maybe_next;
 /*  END   == CONNECT SUCCESS == DO NOT CHANGE THIS COMMENT  */
@@ -545,10 +545,10 @@ fsm_do_data_success(
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next, FSM_STATE_NAME(maybe_next));
     String *message = stringInitCopy(smtpConnection->currentMessage->data);
     if (!message || stringConcat(smtpConnection->writeBuffer, message) < 0) {
-        stringDeinit(message);
+        stringDeinit(&message);
         return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
     }
-    stringDeinit(message);
+    stringDeinit(&message);
     FD_SET(smtpConnection->socket, (struct fd_set*) writeFdSet);
     return maybe_next;
 /*  END   == DATA SUCCESS == DO NOT CHANGE THIS COMMENT  */
@@ -585,7 +585,7 @@ fsm_do_decided_to_data(
 /*  START == DECIDED TO DATA == DO NOT CHANGE THIS COMMENT  */
     String *dataCommand = getDATACommand();
     if (!dataCommand) {
-        stringDeinit(dataCommand);
+        stringDeinit(&dataCommand);
         return fsm_step(initial, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
     }
     return decidedTo(maybe_next, connection, head, response, readFdSet, writeFdSet, dataCommand,
@@ -612,7 +612,7 @@ fsm_do_decided_to_mail_from(
     }
     String *mailCommand = getMAILFROMCommand(smtpConnection->currentMessage->from);
     if (!mailCommand) {
-        stringDeinit(mailCommand);
+        stringDeinit(&mailCommand);
         return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
     }
     return decidedTo(maybe_next, connection, head, response, readFdSet, writeFdSet, mailCommand,
@@ -634,7 +634,7 @@ fsm_do_decided_to_quit(
 /*  START == DECIDED TO QUIT == DO NOT CHANGE THIS COMMENT  */
     String *quitCommand = getQUITCommand();
     if (!quitCommand) {
-        stringDeinit(quitCommand);
+        stringDeinit(&quitCommand);
         return fsm_step(initial, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
     }
     return decidedTo(maybe_next, connection, head, response, readFdSet, writeFdSet, quitCommand,
@@ -657,7 +657,7 @@ fsm_do_decided_to_rcpt(
     SMTPConnection *smtpConnection = (SMTPConnection*) connection;
     String *rcptCommand = getRCPTTOCommand(smtpConnection->currentMessage->recipients[smtpConnection->sentRcptTos++]);
     if (!rcptCommand) {
-        stringDeinit(rcptCommand);
+        stringDeinit(&rcptCommand);
         return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);
     }
     return decidedTo(maybe_next, connection, head, response, readFdSet, writeFdSet, rcptCommand,

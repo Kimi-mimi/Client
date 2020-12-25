@@ -330,6 +330,7 @@ int stringReplaceCharactersFromIdxWithLen(String *self, int startIdx, size_t len
     if (self->capacity <= newCount) {
         if (reallocStringWithCapacity(self, newCount * 2) < 0) {
             errPrint();
+            stringDeinit(&oldString);
             return -1;
         }
     }
@@ -338,7 +339,7 @@ int stringReplaceCharactersFromIdxWithLen(String *self, int startIdx, size_t len
     memcpy(self->buf + startIdx + with->count, oldString->buf + startIdx + len, self->count - startIdx - len);
     memset(self->buf + newCount, 0, self->capacity - newCount);
 
-    stringDeinit(oldString);
+    stringDeinit(&oldString);
     self->count = newCount;
     return newCount;
 }
@@ -450,10 +451,10 @@ void stringClear(String *self) {
  * Деструктор строки
  * @param self Строка
  */
-void stringDeinit(String *self) {
-    if (!self)
+void stringDeinit(String **self) {
+    if (!(*self))
         return;
 
-    stringClear(self);
-    freeAndNull(self);
+    stringClear(*self);
+    freeAndNull(*self);
 }

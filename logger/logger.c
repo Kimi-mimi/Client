@@ -32,6 +32,12 @@ int logError(const char *file, const char *func, int line) {
     return logMessage(msg, error);
 }
 
+int logCantRmFile(const char* filepath) {
+    char msg[LOG_MESSAGE_SIZE];
+    sprintf(msg, "Can't delete file '%s'", filepath);
+    return logMessage(msg, error);
+}
+
 int logResponseForFdAndDomain(int fd, const String *domain, const String *response, const char *command, LogMessageType messageType) {
     char msg[LOG_MESSAGE_SIZE];
     sprintf(msg, "Response on %s for fd [%d](%s): '%s'", command, fd, domain->buf, response->buf);
@@ -65,12 +71,6 @@ int logInternalError(int fd, const String *domain) {
 int logInvalidTransition(int fd, const String *domain) {
     char msg[LOG_MESSAGE_SIZE];
     sprintf(msg, "Invalid transition on [%d](%s)", fd, domain->buf);
-    return logMessage(msg, info);
-}
-
-int logSendingCommand(int fd, const String *domain, const char *command) {
-    char msg[LOG_MESSAGE_SIZE];
-    sprintf(msg, "Sending %s for fd [%d](%s)", command, fd, domain->buf);
     return logMessage(msg, info);
 }
 
@@ -121,14 +121,14 @@ int logMessage(const char* message, LogMessageType messageType) {
     }
     if (!prefixString) {
         errPrint();
-        stringDeinit(messageString);
+        stringDeinit(&messageString);
         return -1;
     }
 
     if (stringConcat(prefixString, messageString) < 0) {
         errPrint();
-        stringDeinit(prefixString);
-        stringDeinit(messageString);
+        stringDeinit(&prefixString);
+        stringDeinit(&messageString);
         return -1;
     }
 
@@ -143,20 +143,20 @@ int logMessage(const char* message, LogMessageType messageType) {
     if (msgsnd(msQueueFd, &loggerMessage, sizeof(loggerMessage.message), 0) < 0) {
         errno = CERR_MSGSND;
         errPrint();
-        stringDeinit(prefixString);
-        stringDeinit(messageString);
+        stringDeinit(&prefixString);
+        stringDeinit(&messageString);
         return -1;
     }
 
-    stringDeinit(prefixString);
-    stringDeinit(messageString);
+    stringDeinit(&prefixString);
+    stringDeinit(&messageString);
     return 0;
 }
 
 // ****************************************************************************************************************** //
 static volatile int quit = 0;           // Флаг завершения процесса-логгера
 
-static void intHandler(int _) {
+static void intHandler(int signal) {
     quit = 1;
 }
 

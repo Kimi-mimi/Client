@@ -27,7 +27,7 @@ ssize_t readFromFd(SMTPConnection *connection) {
     char buf[READ_LENGTH];
     String *ans = NULL;
 
-    memset(buf, 0, sizeof (buf));
+    memset(buf, 0, sizeof(buf));
     recvLength = recv(connection->socket, buf, READ_LENGTH, 0);
     if (recvLength < 0) {
         errno = CERR_RECV;
@@ -45,11 +45,11 @@ ssize_t readFromFd(SMTPConnection *connection) {
 
     if (stringConcat(connection->readBuffer, ans) < 0) {
         errPrint();
-        stringDeinit(ans);
+        stringDeinit(&ans);
         return -1;
     }
 
-    stringDeinit(ans);
+    stringDeinit(&ans);
     return recvLength;
 }
 
@@ -167,7 +167,7 @@ int clientMain(int needLoopback) {
             }
 
             for (int i = 0; i < messagesFromDirLen; i++)
-                smtpMessageDeinit(messagesFromDir[i]);
+                smtpMessageDeinit(&messagesFromDir[i]);
             messagesFromDirLen = 0;
             freeAndNull(messagesFromDir);
 
@@ -254,8 +254,7 @@ int clientMain(int needLoopback) {
                                  &activeReadFdSet, &activeWriteFdSet);
                     }
 
-                    stringDeinit(outputString);
-                    outputString = NULL;
+                    stringDeinit(&outputString);
                 }
             }
 
@@ -278,5 +277,6 @@ int clientMain(int needLoopback) {
     close(pipeFds[0]);
     close(pipeFds[1]);
     smtpConnectionListDeinitList(connectionListHead, 1);
+    connectionListHead = NULL;
     return ret;
 }
