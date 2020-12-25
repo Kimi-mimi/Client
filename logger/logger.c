@@ -200,7 +200,7 @@ pid_t loggerMain(void) {
         errno = CERR_FOPEN;
         errPrint();
         msgctl(msQueueFd, IPC_RMID, NULL);
-        onError();
+        return -1;
     }
 
     log(logFile, "[BEGIN] LOGGER ON");

@@ -68,7 +68,7 @@ create_build_dir:
 main.o: main.c client/client.h errors/client_errors.h bytes/bytes.h logger/logger.h
 	gcc $(C_VER) $(FLAGS) -c main.c -o $(BUILD_DIR)/main.o
 
-string.o: bytes/string.h bytes/string.c errors/client_errors.h bytes/bytes.h
+string.o: bytes/string.h bytes/string.c errors/client_errors.h bytes/bytes.h logger/logger.h
 	gcc $(C_VER) $(FLAGS) -c bytes/string.c -o $(BUILD_DIR)/string.o
 
 bytes.o: bytes/bytes.h bytes/bytes.c errors/client_errors.h
@@ -80,22 +80,22 @@ client.o: client/client.h client/client.c errors/client_errors.h bytes/bytes.h l
 logger.o: logger/logger.h logger/logger.c errors/client_errors.h
 	gcc $(C_VER) $(FLAGS) -c logger/logger.c -o $(BUILD_DIR)/logger.o
 
-smtp_command.o: smtp/smtp_command.h smtp/smtp_command.c errors/client_errors.h bytes/string.h
+smtp_command.o: smtp/smtp_command.h smtp/smtp_command.c errors/client_errors.h bytes/string.h logger/logger.h
 	gcc $(C_VER) $(FLAGS) -c smtp/smtp_command.c -o $(BUILD_DIR)/smtp_command.o
 
-smtp_message.o: smtp/smtp_message.h smtp/smtp_message.c errors/client_errors.h bytes/string.h bytes/bytes.h
+smtp_message.o: smtp/smtp_message.h smtp/smtp_message.c errors/client_errors.h bytes/string.h bytes/bytes.h logger/logger.h
 	gcc $(C_VER) $(FLAGS) -c smtp/smtp_message.c -o $(BUILD_DIR)/smtp_message.o
 
 smtp_connection.o: smtp/smtp_connection.c smtp/smtp_connection.h smtp/smtp_message.h
-smtp_connection.o: errors/client_errors.h bytes/bytes.h bytes/string.h
+smtp_connection.o: errors/client_errors.h bytes/bytes.h bytes/string.h logger/logger.h
 	gcc $(C_VER) $(FLAGS) -c smtp/smtp_connection.c -o $(BUILD_DIR)/smtp_connection.o
 
 smtp_connection_list.o: smtp/smtp_connection_list.c smtp/smtp_connection_list.h smtp/smtp_connection.h
-smtp_connection_list.o: errors/client_errors.h bytes/bytes.h
+smtp_connection_list.o: errors/client_errors.h bytes/bytes.h logger/logger.h
 	gcc $(C_VER) $(FLAGS) -c smtp/smtp_connection_list.c -o $(BUILD_DIR)/smtp_connection_list.o
 
 smtp_message_queue.o: smtp/smtp_message_queue.c smtp/smtp_message_queue.h smtp/smtp_message.h
-smtp_message_queue.o: bytes/bytes.h bytes/string.h errors/client_errors.h
+smtp_message_queue.o: bytes/bytes.h bytes/string.h errors/client_errors.h logger/logger.h
 	gcc $(C_VER) $(FLAGS) -c smtp/smtp_message_queue.c -o $(BUILD_DIR)/smtp_message_queue.o
 
 fsm_common.o: autogen/fsm-common.c autogen/fsm-common.h smtp/smtp_command.h smtp/smtp_connection.h smtp/smtp_connection_list.h
@@ -111,11 +111,12 @@ client_errors.o: errors/client_errors.h errors/client_errors.c logger/logger.h
 
 # TEST
 
-test: string.o bytes.o smtp_message.o smtp_message_queue.o smtp_connection.o smtp_connection_list.o
+test: string.o bytes.o smtp_message.o smtp_message_queue.o smtp_connection.o smtp_connection_list.o logger.o
 test: string_test.o bytes_test.o smtp_message_test.o smtp_message_queue_test.o smtp_connection_test.o smtp_connection_list_test.o
 test: create_test_dir test.o
 	gcc $(C_VER) $(FLAGS) $(CUNIT) $(LIBS) -o $(TEST_DIR)/test \
 $(TEST_DIR)/test.o \
+$(BUILD_DIR)/logger.o \
 $(BUILD_DIR)/string.o \
 $(TEST_DIR)/string_test.o \
 $(BUILD_DIR)/bytes.o \
