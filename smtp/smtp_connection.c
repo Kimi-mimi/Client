@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <resolv.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -37,7 +38,10 @@ static String *getRecordForHost(const String *host, int type) {
     u_char resBuf[4096];
     char rowBuf[4096];
 
-    resLen = res_query(host->buf, ns_c_any, type, resBuf, sizeof(resBuf));
+    memset(resBuf, 0, sizeof(resBuf) / sizeof(u_char));
+    memset(rowBuf, 0, sizeof(rowBuf) / sizeof(char));
+
+    resLen = res_query(host->buf, ns_c_in, type, resBuf, sizeof(resBuf));
     if (resLen < 0) {
         errno = CERR_RES_QUERY;
         errPrint();
