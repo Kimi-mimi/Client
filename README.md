@@ -1,12 +1,25 @@
 # Клиентская часть курсача по SMTP
-Однопоточный, однопроцессный, с использованием `select` 
+Однопоточный, однопроцессный, с использованием `select`. 
+Логгирование в отдельном процессе. 
 
-Запускать как
-```console
-foo@bar:~$ make
-foo@bar:~$ ./main
-```
+* Запуск клиента
+    ```console
+    foo@bar:~$ make main
+    foo@bar:~$ build/main [loopback/no-loopback]
+    ```
 
-## Специальные сообщения:
-* q -- клиент выключается
-* halt -- команда на закрытие сервера
+* Для запуска тестов (используется CUnit)
+    ```console
+    foo@bar:~$ make test
+    foo@bar:~$ build/test/test
+    ```
+
+* Для сборки отчета
+    ```console
+    foo@bar:~$ make report
+    ```
+
+* Для сборки всего сразу
+    ```console
+    foo@bar:~$ make
+    ```
