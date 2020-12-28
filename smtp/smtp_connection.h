@@ -11,8 +11,12 @@
 #include "../autogen/fsm-fsm.h"
 
 #define SERVER_PORT                         25              // Порт сервера
+#define SERVER_PORT_2                         2525             // Порт сервера
 #define SERVER_HOST                         "kimi-mimi.ru"  // Хост сервера
 #define SERVER_HOST_STRING_INITIALIZER      { .buf = SERVER_HOST, .count = 12, .capacity = 12, };
+
+#define SERVER_HOST_2                         "kimi-mimi.com"  // Хост сервера 2
+#define SERVER_HOST_2_STRING_INITIALIZER      { .buf = SERVER_HOST_2, .count = 13, .capacity = 13, };
 
 
 typedef struct {

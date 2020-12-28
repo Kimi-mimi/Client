@@ -472,7 +472,8 @@ fsm_do_connect_success(
         return initial;
     }
     changeState(smtpConnection, FSM_STATE_NAME(initial), maybe_next,  FSM_STATE_NAME(maybe_next));
-    String *heloCommand = getHELOCommand();
+//    String *heloCommand = getHELOCommand();
+    String *heloCommand = getEHLOCommand();
     if (!heloCommand || stringConcat(smtpConnection->writeBuffer, heloCommand) < 0) {
         stringDeinit(&heloCommand);
         return fsm_step(smtpConnection->connState, FSM_EV_INTERNAL_ERROR, head, connection, response, readFdSet, writeFdSet);

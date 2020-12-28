@@ -104,6 +104,7 @@ static String *getRecordForHost(const String *host, int type) {
  */
 String *getIpByHost(const String *host, int *port, int needConnect) {
     const String kimiMimiHostNameString = SERVER_HOST_STRING_INITIALIZER;
+    const String kimiMimiHostComNameString = SERVER_HOST_2_STRING_INITIALIZER;
     String *mxString = NULL;
     String *ipString = NULL;
 
@@ -126,7 +127,16 @@ String *getIpByHost(const String *host, int *port, int needConnect) {
         }
         *port = SERVER_PORT;
         return ipString;
+    } else if (stringEqualsTo(host, &kimiMimiHostComNameString)) {
+        ipString = stringInitFromStringBuf("127.0.0.1");
+        if (!ipString) {
+            errPrint();
+            return NULL;
+        }
+        *port = SERVER_PORT_2;
+        return ipString;
     }
+
 
     mxString = getRecordForHost(host, ns_t_mx);
     if (!mxString) {

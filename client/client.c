@@ -199,33 +199,40 @@ int clientMain(int needLoopback) {
         }
 
         for (int i = 3; i < FD_SETSIZE; i++) {
-            if (!FD_ISSET(i, &readFdSet) && !FD_ISSET(i, &writeFdSet))
-                continue;
+            int needRcv = 1;
+            currentConnection = smtpConnectionListGetConnectionWithSocket(connectionListHead, i);
+
+            if (!FD_ISSET(i, &readFdSet) && !FD_ISSET(i, &writeFdSet)) {
+                if (!currentConnection || !currentConnection->readBuffer->count)
+                    continue;
+                needRcv = 0;
+            }
 
             if (i == pipeFds[0]) {
                 closeProgram = 1;
                 break;
             }
 
-            currentConnection = smtpConnectionListGetConnectionWithSocket(connectionListHead, i);
             if (!currentConnection) {
                 logNoConnectionForFdFound(i);
                 continue;
             }
 
-            if (FD_ISSET(i, &readFdSet)) {
-                recvLength = readFromFd(currentConnection);
-                if (recvLength < 0) {
-                    errPrint();
-                    fsm_step(currentConnection->connState, FSM_EV_INTERNAL_ERROR,
-                             (void**) &connectionListHead, currentConnection,NULL,
-                             &activeReadFdSet, &activeWriteFdSet);
-                    continue;
-                } else if (recvLength == 0) {
-                    fsm_step(currentConnection->connState, FSM_EV_CONNECTION_CLOSED_BY_REMOTE,
-                             (void**) &connectionListHead, currentConnection, NULL,
-                             &activeReadFdSet, &activeWriteFdSet);
-                    continue;
+            if (FD_ISSET(i, &readFdSet) || currentConnection->readBuffer->count) {
+                if (needRcv) {
+                    recvLength = readFromFd(currentConnection);
+                    if (recvLength < 0) {
+                        errPrint();
+                        fsm_step(currentConnection->connState, FSM_EV_INTERNAL_ERROR,
+                                 (void **) &connectionListHead, currentConnection, NULL,
+                                 &activeReadFdSet, &activeWriteFdSet);
+                        continue;
+                    } else if (recvLength == 0) {
+                        fsm_step(currentConnection->connState, FSM_EV_CONNECTION_CLOSED_BY_REMOTE,
+                                 (void **) &connectionListHead, currentConnection, NULL,
+                                 &activeReadFdSet, &activeWriteFdSet);
+                        continue;
+                    }
                 }
 
                 outputString = smtpConnectionGetLatestMessageFromReadBuf(currentConnection, &exception);
